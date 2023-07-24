@@ -30,6 +30,9 @@ fi
 # Build IPs CIDRs with found reverse DNS servers
 #grep -v -F ":" digitalocean_announced_ips.txt | xargs -I {} sh -c "cidr="$(echo '{}' | cut -d '/' -f 1)"; dig +nocomments -x \$cidr | grep -v -F ';' | grep -e '.*\.in-addr\.arpa\.' | echo '{}'" > digitalocean_announced_ips_with_reverse.txt
 
+grep -v -F ":" digitalocean_announced_ips.txt | xargs -I {} sh -c "echo '{} # $(dig +short -x {})'" > digitalocean_announced_ips_with_reverse.txt
+
+
 # Fetch all reverse DNS addresses
 # ns3.digitalocean.com = 198.41.222.173
 cat digitalocean_announced_ips_full.txt | xargs -n 1 -P 40 dig @198.41.222.173 +short +time=5 +tries=10 -x > digitalocean_announced_ips_full_reverse.txt
@@ -39,3 +42,43 @@ cat digitalocean_announced_ips_full.txt | xargs -n 1 -P 40 dig @198.41.222.173 +
 
 # A sample
 #cat digitalocean_announced_ips_full.txt | xargs -n 1 -P 40 dig @198.41.222.173 +short +time=5 +tries=10 -x > digitalocean_announced_ips_full_reverse.txt
+
+cat digitalocean_announced_ips_full.txt | xargs -P 40  -I {} sh -c 'set -eu;rev="$(dig @198.41.222.173 +short +time=5 +tries=10 -x {})";echo "{} # $rev";' > digitalocean_announced_ips_full_reverse_better.txt
+
+
+grep -F -x -v -f digitalocean_announced_ips_full_reverse_better_only_ips.txt digitalocean_announced_ips_full.txt
+sed -i 's/ # $//' digitalocean_announced_ips_full_reverse_better.txt
+sort digitalocean_announced_ips_full_reverse_better.txt > digitalocean_announced_ips_full_reverse_better2.txt
+mv digitalocean_announced_ips_full_reverse_better2.txt digitalocean_announced_ips_full_reverse_better.txt
+
+diff -u digitalocean_announced_ips_full_reverse_better_only_ips.txt digitalocean_announced_ips_full.txt | delta
+cut -d ' ' -f 1 digitalocean_announced_ips_full_reverse_better.txt > digitalocean_announced_ips_full_reverse_better_only_ips.txt
+
+# Find all results
+grep -F "stretchoid" digitalocean_announced_ips_full_reverse_better.txt | cut -d " " -f 3 | sort
+
+
+# Find all ranges
+grep -F "stretchoid" digitalocean_announced_ips_full_reverse_better.txt | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq
+
+
+# Make a list of search keys
+grep -F "stretchoid" digitalocean_announced_ips_full_reverse_better.txt | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq > found_ranges.txt
+
+# Find all ranges to re-scan
+cat found_ranges.txt | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt | sort
+
+# Compare with debian-scripts
+grep -F "add stretchoid" stretchoid.ipset | cut -d ' ' -f 3 | cut -d '.' -f -3 | sort | uniq > found_ranges.txt
+cat found_ranges.txt | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt | sort > stretchoid_ranges_debian_scripts.txt
+
+
+# Re scan
+dig -4 +noauthority +noadditional +nostats -x 107.170.202.77 @1.0.0.1
+
+cat stretchoid_ranges.txt | xargs -n1 prips > stretchoid_digitalocean_possible_ips.txt
+# With failure handling
+cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @1.1.1.1 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' > stretchoid_revisions/v3.txt
+
+grep -F "stretchoid" stretchoid_revisions/v2.txt | sort > stretchoid_revisions/v2.sorted.txt
+mv stretchoid_revisions/v2.sorted.txt stretchoid_revisions/v2.txt
