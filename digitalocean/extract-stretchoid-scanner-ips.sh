@@ -82,3 +82,6 @@ cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -e
 
 grep -F "stretchoid" stretchoid_revisions/v2.txt | sort > stretchoid_revisions/v2.sorted.txt
 mv stretchoid_revisions/v2.sorted.txt stretchoid_revisions/v2.txt
+
+# Build the diff
+diff --unified=1 stretchoid_revisions/v1.txt stretchoid_revisions/v2.txt > stretchoid_revisions/v1to2.diff
