@@ -93,3 +93,6 @@ awk -F'#' '{print $2" # "$1}' OFS=, "stretchoid_revisions/v5.txt" | awk '{$1=$1;
 cat stretchoid_revisions/v*-reversed.txt | sort | uniq -c > stretchoid_revisions/count-reversed.txt
 # Same but sorted not by name but by count
 cat stretchoid_revisions/v*-reversed.txt | sort | uniq -c | sort > stretchoid_revisions/count-reversed.txt
+
+# Generate the list of full IPs of stretchoid
+cat stretchoid_revisions/v*-reversed.txt | sort | uniq | awk -F'#' '{print $2" # "$1}' OFS='#' | awk '{$1=$1;print}' > ../stretchoid.txt
