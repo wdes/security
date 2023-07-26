@@ -23,3 +23,16 @@ jobs:
                 git add -A
                 echo '### Diff' >> $GITHUB_STEP_SUMMARY
                 echo -e "\`\`\`diff\n$(git diff --staged)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+    build-aws-cloudfront:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v3
+            - name: Build the AWS CloudFront list
+              run: ./make-aws-cloudfront-range.sh
+            - name: Post the summary
+              run: |
+                git add -A
+                echo '### Diff' >> $GITHUB_STEP_SUMMARY
+                echo -e "\`\`\`diff\n$(git diff --staged)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
