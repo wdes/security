@@ -22,7 +22,7 @@ jobs:
               run: |
                 git add -A
                 echo '### Diff' >> $GITHUB_STEP_SUMMARY
-                echo -e "\`\`\`diff\n$(git diff --staged)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+                printf '### Diff\n```diff\n%s\n```\n' "$(git diff --staged)" >> $GITHUB_STEP_SUMMARY
 
     build-aws-cloudfront:
         runs-on: ubuntu-latest
@@ -35,4 +35,4 @@ jobs:
               run: |
                 git add -A
                 echo '### Diff' >> $GITHUB_STEP_SUMMARY
-                echo -e "\`\`\`diff\n$(git diff --staged)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+                printf '### Diff\n```diff\n%s\n```\n' "$(git diff --staged)" >> $GITHUB_STEP_SUMMARY
