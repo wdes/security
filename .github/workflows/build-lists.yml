@@ -28,6 +28,21 @@ jobs:
               run: |
                   printf '%s' "${{ secrets.GH_APP_JWT_PRIV_PEM_CONTENTS }}" > ${HOME}/.secret_jwt.pem
                   printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" > ${HOME}/.private-key.asc
+            - uses: actions/setup-node@v3
+              with:
+                  node-version: 18
+            - name: Get yarn cache directory path
+              id: yarn-cache-dir-path
+              run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+            - name: yarn cache
+              uses: actions/cache@v3
+              with:
+                  path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
+                  key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-yarn-
+            - name: Install sudo-bot
+              run: yarn global add sudo-bot
             - name: Run sudo-bot
               run: |
                   sudo-bot --verbose \
