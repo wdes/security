@@ -12,6 +12,8 @@ on:
 
 jobs:
     build-stretchoid:
+        environment:
+            name: sudo-bot
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
@@ -23,6 +25,29 @@ jobs:
                 git add -A
                 echo '### Diff' >> $GITHUB_STEP_SUMMARY
                 printf '### Diff\n```diff\n%s\n```\n' "$(git diff --staged)" >> $GITHUB_STEP_SUMMARY
+            - name: Extract secrets
+              run: |
+                  printf '%s' "${{ secrets.GH_APP_JWT_PRIV_PEM_CONTENTS }}" > ${HOME}/.secret_jwt.pem
+                  printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" > ${HOME}/.private-key.asc
+            - name: Run sudo-bot
+              run: |
+                  sudo-bot --verbose \
+                    --jwt-file="${HOME}/.secret_jwt.pem" \
+                    --gh-app-id='17453' \
+                    --installation-id="${{ secrets.INSTALLATION_ID }}" \
+                    --repository-slug='datacenters-network/security' \
+                    --target-branch='main' \
+                    --assign='williamdes' \
+                    --commit-author-email='sudo-bot@wdes.fr' \
+                    --commit-author-name='Sudo Bot' \
+                    --gpg-private-key-file="${HOME}/.private-key.asc" \
+                    --template="./.github/sudo-bot-template.js" \
+                    --gpg-private-key-passphrase="${{ secrets.GPG_PASSPHRASE }}"
+            - name: Purge secrets
+              if: always()
+              run: |
+                  rm -v ${HOME}/.secret_jwt.pem
+                  rm -v ${HOME}/.private-key.asc
 
     build-aws-cloudfront:
         runs-on: ubuntu-latest
