@@ -55,7 +55,7 @@ jobs:
                     --commit-author-email='sudo-bot@wdes.fr' \
                     --commit-author-name='Sudo Bot' \
                     --gpg-private-key-file="${HOME}/.private-key.asc" \
-                    --template="./.github/sudo-bot-template.js" \
+                    --template="$GITHUB_WORKSPACE/.github/sudo-bot-template.js" \
                     --gpg-private-key-passphrase="${{ secrets.GPG_PASSPHRASE }}"
             - name: Purge secrets
               if: always()
