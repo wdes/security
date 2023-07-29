@@ -7,8 +7,8 @@ on:
     repository_dispatch:
         types: run-build-lists
     workflow_dispatch:
-    #schedule:
-    #    - cron: "00 12 * * *"
+    schedule:
+        - cron: "10 * * * *"
 
 jobs:
     build-stretchoid:
