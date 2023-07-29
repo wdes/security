@@ -2802,6 +2802,8 @@
 107.170.235.38
 # apzg-0728n-008.stretchoid.com.
 159.203.224.15
+# apzg-0728n-009.stretchoid.com.
+107.170.240.23
 # apzg-0728n-010.stretchoid.com.
 107.170.240.25
 # apzg-0728n-011.stretchoid.com.
@@ -2908,6 +2910,8 @@
 192.241.209.4
 # apzg-0728o-012.stretchoid.com.
 107.170.227.19
+# apzg-0728o-013.stretchoid.com.
+107.170.227.21
 # apzg-0728o-014.stretchoid.com.
 198.199.96.65
 # apzg-0728o-015.stretchoid.com.
@@ -2974,6 +2978,8 @@
 192.241.207.100
 # apzg-0728o-047.stretchoid.com.
 107.170.239.21
+# apzg-0728o-048.stretchoid.com.
+107.170.239.28
 # apzg-0728o-049.stretchoid.com.
 198.199.93.93
 # apzg-0729a-000.stretchoid.com.
