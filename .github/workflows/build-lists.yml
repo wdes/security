@@ -8,7 +8,7 @@ on:
         types: run-build-lists
     workflow_dispatch:
     schedule:
-        - cron: "30 * * * *"
+        - cron: "30 */2 * * *"
 
 jobs:
     build-stretchoid:
