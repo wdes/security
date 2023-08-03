@@ -1,1 +1,9 @@
-# security
+# Datacenters Network security toolkit
+
+- `stretchoid.txt` (List of all known stretchoid IPs)
+- `censys-scanner.txt` (List of all IPs declared by censys scanner on their FAQ)
+
+## Other similar projects
+
+- https://github.com/szepeviktor/debian-server-tools/tree/master/security/myattackers-ipsets/ipset
+- https://github.com/wravoc/authlog-threats/blob/main/scanners
