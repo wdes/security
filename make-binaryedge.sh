@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -eu
+
 REV="v-$(date --iso-8601=seconds)"
 
 cd ./digitalocean/
