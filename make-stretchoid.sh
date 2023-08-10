@@ -4,6 +4,10 @@ REV="v-$(date --iso-8601=seconds)"
 
 cd ./digitalocean/
 
+if [ ! -d ./stretchoid_revisions/ ]; then
+    mkdir ./stretchoid_revisions
+fi
+
 # With failure handling
 cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' 1> stretchoid_revisions/$REV.txt
 

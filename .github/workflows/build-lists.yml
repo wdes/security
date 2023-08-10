@@ -19,10 +19,10 @@ jobs:
         steps:
             - name: Checkout
               uses: actions/checkout@v3
-            - name: Build the stretchoid list
-              run: ./make-stretchoid.sh
             - name: Build the binaryedge list
               run: ./make-binaryedge.sh
+            - name: Build the stretchoid list
+              run: ./make-stretchoid.sh
             - name: Post the summary
               run: |
                 git add -A
