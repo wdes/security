@@ -8,11 +8,17 @@ if [ ! -d ./binaryedge_revisions/ ]; then
     mkdir ./binaryedge_revisions
 fi
 
+if [ ! -d ./reverse_revisions/ ]; then
+    mkdir ./reverse_revisions
+fi
+
 # With failure handling
 cat binaryedge_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' 1> binaryedge_revisions/$REV.txt
 
 grep -F "binaryedge" binaryedge_revisions/$REV.txt | sort -V > binaryedge_revisions/$REV.sorted.txt
+grep -v -F "binaryedge" binaryedge_revisions/$REV.txt | sort -V > reverse_revisions/$REV.sorted.txt
 mv binaryedge_revisions/$REV.sorted.txt binaryedge_revisions/$REV.txt
+mv reverse_revisions/$REV.sorted.txt reverse_revisions/$REV.txt
 
 # Reverse the file
 awk -F'#' '{print $2" # "$1}' OFS=, "binaryedge_revisions/$REV.txt" | awk '{$1=$1;print}' | sort > binaryedge_revisions/$REV-reversed.txt

@@ -8,11 +8,17 @@ if [ ! -d ./stretchoid_revisions/ ]; then
     mkdir ./stretchoid_revisions
 fi
 
+if [ ! -d ./reverse_revisions/ ]; then
+    mkdir ./reverse_revisions
+fi
+
 # With failure handling
 cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' 1> stretchoid_revisions/$REV.txt
 
 grep -F "stretchoid" stretchoid_revisions/$REV.txt | sort -V > stretchoid_revisions/$REV.sorted.txt
+grep -v -F "stretchoid" stretchoid_revisions/$REV.txt | sort -V > reverse_revisions/$REV.sorted.txt
 mv stretchoid_revisions/$REV.sorted.txt stretchoid_revisions/$REV.txt
+mv reverse_revisions/$REV.sorted.txt reverse_revisions/$REV.txt
 
 # Reverse the file
 awk -F'#' '{print $2" # "$1}' OFS=, "stretchoid_revisions/$REV.txt" | awk '{$1=$1;print}' | sort > stretchoid_revisions/$REV-reversed.txt
