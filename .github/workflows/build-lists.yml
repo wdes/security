@@ -24,7 +24,7 @@ jobs:
               id: cache-dns-ptr-resolver
               with:
                   path: ~/.cargo/bin/dns-ptr-resolver
-                  key: ${{ runner.os }}-cargo-bin-kbs-1.1.0
+                  key: ${{ runner.os }}-cargo-bin-dns-ptr-resolver-1.1.0
             - name: Set up toolchain
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
               uses: actions-rs/toolchain@v1
