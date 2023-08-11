@@ -14,7 +14,6 @@ if [ ! -d ./reverse_revisions/ ]; then
     mkdir ./reverse_revisions
 fi
 
-# With failure handling
 dns-ptr-resolver $PWD/stretchoid_digitalocean_possible_ips.txt 1> stretchoid_revisions/$REV.txt
 
 grep -F "stretchoid" stretchoid_revisions/$REV.txt | sort -V > stretchoid_revisions/$REV.sorted.txt
