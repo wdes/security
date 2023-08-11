@@ -35,8 +35,8 @@ jobs:
             - name: Install dns-ptr-resolver
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
               run: cargo install dns-ptr-resolver@1.1.0
-            #- name: Build the binaryedge list
-            #  run: ./make-binaryedge.sh
+            - name: Build the binaryedge list
+              run: ./make-binaryedge.sh
             - name: Build the stretchoid list
               run: ./make-stretchoid.sh
             - name: Post the summary
