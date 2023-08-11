@@ -24,7 +24,7 @@ jobs:
               id: cache-dns-ptr-resolver
               with:
                   path: ~/.cargo/bin/dns-ptr-resolver
-                  key: ${{ runner.os }}-cargo-bin-kbs-1.0.0
+                  key: ${{ runner.os }}-cargo-bin-kbs-1.1.0
             - name: Set up toolchain
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
               uses: actions-rs/toolchain@v1
@@ -34,7 +34,7 @@ jobs:
                   override: true
             - name: Install dns-ptr-resolver
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
-              run: cargo install dns-ptr-resolver@1.0.0
+              run: cargo install dns-ptr-resolver@1.1.0
             #- name: Build the binaryedge list
             #  run: ./make-binaryedge.sh
             - name: Build the stretchoid list
