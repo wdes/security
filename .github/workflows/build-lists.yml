@@ -30,7 +30,7 @@ jobs:
               uses: actions-rs/toolchain@v1
               with:
                   profile: minimal
-                  toolchain: 1.64.0
+                  toolchain: 1.67
                   override: true
             - name: Install dns-ptr-resolver
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
