@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -eu
+set -eux
 
 REV="v-$(date --iso-8601=seconds)"
 
