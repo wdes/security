@@ -15,7 +15,7 @@ if [ ! -d ./reverse_revisions/ ]; then
 fi
 
 # With failure handling
-cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' 1> stretchoid_revisions/$REV.txt
+dns-ptr-resolver $PWD/stretchoid_digitalocean_possible_ips.txt 1> stretchoid_revisions/$REV.txt
 
 grep -F "stretchoid" stretchoid_revisions/$REV.txt | sort -V > stretchoid_revisions/$REV.sorted.txt
 grep -v -F "stretchoid" stretchoid_revisions/$REV.txt | sort -V > reverse_revisions/$REV.sorted.txt
