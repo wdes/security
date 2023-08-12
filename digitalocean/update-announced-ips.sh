@@ -28,6 +28,9 @@ diff -u digitalocean_ips.txt digitalocean_announced_ips.txt > digitalocean_ips_v
 # Generate the full IP list to check PTRs
 grep -v -F ":" digitalocean_announced_ips.txt | xargs -n1 prips > digitalocean_announced_ips_full.txt
 
+# Make all digitalocean announced IPS simpler /24 networks
+grep -v -F ":" digitalocean_announced_ips.txt | xargs -I {} sh -c "prips -i 256 '{}' | awk '\$0=\"\"\$0\" # {}\"'" > digitalocean_announced_ips_simpler.txt
+
 # Some test command to get all declared reverse DNS objects at RIPE
 #curl 'https://apps.db.ripe.net/db-web-ui/api/rest/fulltextsearch/select?format=json&rows=10000&q=(nserver:(digitalocean.com))%20AND%20(object-type:domain)' -H 'Accept: application/json' -A "$UA" | jq -r '.result.docs | map(.doc.strs) | .[] | map(select(.str.name=="domain")) | map(.str.value) | .[] ' > digitalocean_announced_reverse_dns.txt
 

@@ -68,3 +68,10 @@ cat stretchoid_revisions/v*-reversed.txt | sort | uniq -c | sort > stretchoid_re
 
 # Generate the list of full IPs of stretchoid
 cat stretchoid_revisions/v*-reversed.txt | sort | uniq | awk -F'#' '{print $2" # "$1}' OFS='#' | awk '{$1=$1;print}' > ../stretchoid.txt
+
+
+
+# Find missing IPs in the ranges file
+# WARNING: does not work as expected
+cat binaryedge_revisions/v*-reversed.txt | LC_ALL=C.UTF-8 sort -t "-" -n | uniq | cut -d ' ' -f 3 | sort -V | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt | sort | grep -F -x -v -f ./binaryedge_ranges.txt
+
