@@ -48,15 +48,14 @@ cat found_ranges.txt | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt |
 # Re scan
 dig -4 +noauthority +noadditional +nostats -x 107.170.202.77 @1.0.0.1
 
-cat stretchoid_ranges.txt | xargs -n1 prips > stretchoid_digitalocean_possible_ips.txt
+cat stretchoid_ranges.txt | xargs -n1 prips | uniq | sort -V > stretchoid_digitalocean_possible_ips.txt
+cat binaryedge_ranges.txt | xargs -n1 prips | uniq | sort -V > binaryedge_digitalocean_possible_ips.txt
+
 # With failure handling
 cat stretchoid_digitalocean_possible_ips.txt | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' 1> stretchoid_revisions/v5.txt
 
 grep -F "stretchoid" stretchoid_revisions/v5.txt | sort > stretchoid_revisions/v5.sorted.txt
 mv stretchoid_revisions/v5.sorted.txt stretchoid_revisions/v5.txt
-
-# Build the diff
-diff --unified=1 stretchoid_revisions/v2.txt stretchoid_revisions/v4.txt > stretchoid_revisions/v1to2.diff
 
 # Reverse the file
 awk -F'#' '{print $2" # "$1}' OFS=, "stretchoid_revisions/v5.txt" | awk '{$1=$1;print}' | sort > stretchoid_revisions/v5-reversed.txt
@@ -71,7 +70,7 @@ cat stretchoid_revisions/v*-reversed.txt | sort | uniq | awk -F'#' '{print $2" #
 
 
 
-# Find missing IPs in the ranges file
-# WARNING: does not work as expected
-cat binaryedge_revisions/v*-reversed.txt | LC_ALL=C.UTF-8 sort -t "-" -n | uniq | cut -d ' ' -f 3 | sort -V | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt | sort | grep -F -x -v -f ./binaryedge_ranges.txt
+# Find missing CIDRs from the IPS found in the revisions using the announced prefix list
+cat binaryedge_revisions/v*-reversed.txt | LC_ALL=C.UTF-8 sort -t "-" -n | uniq | cut -d ' ' -f 3 | sort -V | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq | xargs -I {} grep -E "^{}\.0" digitalocean_announced_ips_simpler.txt | sort -V -t# | uniq | cut -d ' ' -f 3 | sort -V | uniq | grep -v -F -f ./binaryedge_ranges.txt
 
+cat binaryedge-full-possible-names_with_ips_clean_ips.txt | sort -V | cut -d " " -f 1 | cut -d '.' -f -3 | sort | uniq | xargs -I {} grep -E "^{}\.0" digitalocean_announced_ips_simpler.txt | sort -V -t# | uniq | cut -d ' ' -f 3 | sort -V | uniq | grep -v -F -f ./binaryedge_ranges.txt
