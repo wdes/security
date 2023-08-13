@@ -2,6 +2,12 @@
 
 set -eux
 
+############################################################################################
+#                                 Information                                              #
+# The program dns-ptr-resolver can be installed from cargo: cargo install dns-ptr-resolver #
+# See: https://github.com/wdes/dns-ptr-resolver                                            #
+############################################################################################
+
 REV="v-$(date --iso-8601=seconds)"
 
 cd ./digitalocean/
@@ -30,4 +36,4 @@ cat stretchoid_revisions/v*-reversed.txt | LC_ALL=C.UTF-8 sort -t "-" -n | uniq 
 grep -F '#' ../stretchoid.txt | cut -d- -f2 | grep -P '^[0-9]{3,}+' | sort | uniq -c | sort > ./stretchoid-chunk-counts.txt
 
 # Search for false positives
-# cat ../stretchoid.txt | cut -d '#' -f 1 | xargs -P 50 -I {} bash -c 'set -eu;rev="$(dig @9.9.9.9 +short +time=1 +tries=1 -x {})"; if [[ "$rev" == *";;"* ]]; then sleep 1; rev="$(dig @8.8.8.8 +short +time=1 +tries=1 -x {})"; fi; echo "{} # $rev";' | grep -v -F "stretchoid.com"
+# dns-ptr-resolver ../stretchoid.txt | grep -v -F "stretchoid.com"
