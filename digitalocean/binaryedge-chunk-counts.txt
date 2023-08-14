@@ -1,8 +1,118 @@
-    108 prod-boron-ams3
-    108 prod-boron-lon1
-    108 prod-boron-nyc1
-    108 prod-boron-nyc3
-    108 prod-boron-sgp1
+      1 dev-barium-fra1
+      1 dev-barium-sfo2
+      1 dev-barium-sfo3
+      1 dev-barium-tor1
+      1 dev-beryllium-ams3
+      1 dev-beryllium-lon1
+      1 dev-mercury-sfo2
+      1 dev-mercury-sfo3
+      1 prod-jerry-se-non-allowlisted-lon1
+      2 do-prod-eu-central-proxys-1102
+      2 do-prod-eu-west-proxys-1102
+      2 do-prod-us-east-proxys-1102
+      2 do-prod-us-north-proxys-1102
+      2 do-prod-us-west-proxys-1102
+      2 prod-jerry-se-naboo-ca-central
+      2 prod-jerry-se-naboo-lon1
+      2 prod-jerry-se-naboo-syd1
+      2 prod-jerry-se-utils-lon1
+      2 prod-mendelevium-us-central
+      2 prod-mendelevium-us-east
+      2 prod-mendelevium-us-southeast
+      2 prod-mendelevium-us-west
+      3 prod-jerry-se-jakku-us-central
+      3 prod-jerry-se-jakku-us-east
+      3 prod-jerry-se-jakku-us-southeast
+      3 prod-jerry-se-jakku-us-west
+      3 prod-jerry-se-kamino-us-central
+      3 prod-jerry-se-kamino-us-east
+      3 prod-jerry-se-kamino-us-southeast
+      3 prod-jerry-se-kamino-us-west
+      3 prod-jerry-se-kashyyyk-us-central
+      3 prod-jerry-se-kashyyyk-us-east
+      3 prod-jerry-se-kashyyyk-us-southeast
+      3 prod-jerry-se-kashyyyk-us-west
+      3 prod-mendelevium-ap-northeast
+      3 prod-mendelevium-ap-south
+      3 prod-mendelevium-ap-southeast
+      3 prod-mendelevium-ap-west
+      3 prod-mendelevium-ca-central
+      3 prod-mendelevium-eu-central
+      3 prod-mendelevium-eu-west
+      4 dev-boron-ams3
+      4 dev-boron-lon1
+      4 dev-boron-nyc1
+      4 dev-boron-nyc3
+      4 dev-boron-sgp1
+      4 prod-mendelevium-fra1
+      4 prod-mendelevium-lon1
+      4 prod-mendelevium-nyc1
+      4 prod-mendelevium-nyc3
+      4 prod-mendelevium-sfo2
+      4 prod-mendelevium-sfo3
+      4 prod-mendelevium-sgp1
+      4 prod-mendelevium-syd1
+      4 prod-mendelevium-tor1
+      4 prod-mercury-ams3
+      4 prod-mercury-fra1
+      4 prod-mercury-lon1
+      4 prod-mercury-nyc1
+      4 prod-mercury-nyc3
+      4 prod-mercury-sgp1
+      4 prod-mercury-tor1
+      5 dev-boron-fra1
+      5 dev-boron-sfo2
+      5 dev-boron-sfo3
+      5 dev-boron-tor1
+      5 dev-meitnerium-ams3
+      5 dev-meitnerium-fra1
+      5 dev-meitnerium-lon1
+      5 dev-meitnerium-nyc1
+      5 dev-meitnerium-nyc3
+      5 dev-meitnerium-sfo2
+      5 dev-meitnerium-sfo3
+      5 dev-meitnerium-sgp1
+      5 dev-meitnerium-tor1
+      5 prod-jerry-se-endor-ap-southeast
+      5 prod-jerry-se-endor-eu-west
+      5 prod-jerry-se-jakku-ap-southeast
+      5 prod-jerry-se-jakku-eu-west
+      5 prod-jerry-se-kamino-ap-southeast
+      5 prod-jerry-se-kamino-eu-west
+      5 prod-jerry-se-kashyyyk-ap-southeast
+      5 prod-jerry-se-kashyyyk-eu-west
+      6 prod-jerry-se-clients-ca-central
+      6 prod-jerry-se-clients-eu-central
+      6 prod-jerry-se-clients-eu-west
+      6 prod-jerry-se-clients-us-east
+      6 prod-jerry-se-clients-us-west
+      6 prod-jerry-se-jakku-ca-central
+      6 prod-jerry-se-jakku-nyc1
+      6 prod-jerry-se-jakku-sfo2
+      6 prod-jerry-se-kamino-ca-central
+      6 prod-jerry-se-kamino-nyc1
+      6 prod-jerry-se-kamino-sfo2
+      6 prod-jerry-se-kashyyyk-ca-central
+      6 prod-jerry-se-kashyyyk-nyc1
+      6 prod-jerry-se-kashyyyk-sfo2
+      6 prod-jerry-se-naboo-tor1
+      6 prod-mendelevium-ams3
+      6 prod-mercury-sfo2
+      6 prod-mercury-sfo3
+      7 prod-jerry-se-naboo-us-central
+      7 prod-jerry-se-naboo-us-east
+      7 prod-jerry-se-naboo-us-west
+      8 prod-barium-ams3
+      8 prod-barium-lon1
+      8 prod-barium-nyc1
+      8 prod-barium-nyc3
+      8 prod-barium-sgp1
+      8 prod-jerry-se-naboo-us-southeast
+      8 prod-silicon-ams3
+      8 prod-silicon-lon1
+      8 prod-silicon-nyc1
+      8 prod-silicon-nyc3
+      8 prod-silicon-sgp1
      10 prod-barium-fra1
      10 prod-barium-sfo2
      10 prod-barium-sfo3
@@ -52,15 +162,6 @@
      10 prod-silicon-sfo2
      10 prod-silicon-sfo3
      10 prod-silicon-tor1
-    110 prod-boron-fra1
-    110 prod-boron-sfo2
-    110 prod-boron-sfo3
-    110 prod-boron-tor1
-    120 prod-jerry-se-scanners-ams3
-    120 prod-jerry-se-scanners-lon1
-    120 prod-jerry-se-scanners-nyc1
-    120 prod-jerry-se-scanners-sfo2
-    120 prod-jerry-se-scanners-tor1
      12 prod-jerry-se-jakku-tor1
      12 prod-jerry-se-kamino-tor1
      12 prod-jerry-se-kashyyyk-tor1
@@ -77,18 +178,7 @@
      16 prod-sulfur-sfo2
      16 prod-sulfur-sfo3
      16 prod-sulfur-tor1
-    180 prod-jerry-se-hoth-nyc1
-    180 prod-jerry-se-hoth-sfo2
      18 jerry-se-do-na-east-unbounds
-      1 dev-barium-fra1
-      1 dev-barium-sfo2
-      1 dev-barium-sfo3
-      1 dev-barium-tor1
-      1 dev-beryllium-ams3
-      1 dev-beryllium-lon1
-      1 dev-mercury-sfo2
-      1 dev-mercury-sfo3
-      1 prod-jerry-se-non-allowlisted-lon1
      20 jerry-se-do-eu-central-unbounds
      20 jerry-se-do-eu-west-unbounds
      20 jerry-se-do-na-central-unbounds
@@ -117,64 +207,11 @@
      23 prod-jerry-se-endor-us-southeast
      28 prod-jerry-se-scanners-ap-south
      29 prod-jerry-se-scanners-ap-west
-      2 do-prod-eu-central-proxys-1102
-      2 do-prod-eu-west-proxys-1102
-      2 do-prod-us-east-proxys-1102
-      2 do-prod-us-north-proxys-1102
-      2 do-prod-us-west-proxys-1102
-      2 prod-jerry-se-naboo-ca-central
-      2 prod-jerry-se-naboo-lon1
-      2 prod-jerry-se-naboo-syd1
-      2 prod-jerry-se-utils-lon1
-      2 prod-mendelevium-us-central
-      2 prod-mendelevium-us-east
-      2 prod-mendelevium-us-southeast
-      2 prod-mendelevium-us-west
      30 prod-jerry-se-endor-tor1
      36 prod-jerry-se-hoth-ca-central
-      3 prod-jerry-se-jakku-us-central
-      3 prod-jerry-se-jakku-us-east
-      3 prod-jerry-se-jakku-us-southeast
-      3 prod-jerry-se-jakku-us-west
-      3 prod-jerry-se-kamino-us-central
-      3 prod-jerry-se-kamino-us-east
-      3 prod-jerry-se-kamino-us-southeast
-      3 prod-jerry-se-kamino-us-west
-      3 prod-jerry-se-kashyyyk-us-central
-      3 prod-jerry-se-kashyyyk-us-east
-      3 prod-jerry-se-kashyyyk-us-southeast
-      3 prod-jerry-se-kashyyyk-us-west
-      3 prod-mendelevium-ap-northeast
-      3 prod-mendelevium-ap-south
-      3 prod-mendelevium-ap-southeast
-      3 prod-mendelevium-ap-west
-      3 prod-mendelevium-ca-central
-      3 prod-mendelevium-eu-central
-      3 prod-mendelevium-eu-west
      40 prod-jerry-se-managers-lon1
      46 prod-jerry-se-endor-nyc1
      46 prod-jerry-se-endor-sfo2
-      4 dev-boron-ams3
-      4 dev-boron-lon1
-      4 dev-boron-nyc1
-      4 dev-boron-nyc3
-      4 dev-boron-sgp1
-      4 prod-mendelevium-fra1
-      4 prod-mendelevium-lon1
-      4 prod-mendelevium-nyc1
-      4 prod-mendelevium-nyc3
-      4 prod-mendelevium-sfo2
-      4 prod-mendelevium-sfo3
-      4 prod-mendelevium-sgp1
-      4 prod-mendelevium-syd1
-      4 prod-mendelevium-tor1
-      4 prod-mercury-ams3
-      4 prod-mercury-fra1
-      4 prod-mercury-lon1
-      4 prod-mercury-nyc1
-      4 prod-mercury-nyc3
-      4 prod-mercury-sgp1
-      4 prod-mercury-tor1
      50 prod-meitnerium-ams3
      50 prod-meitnerium-fra1
      50 prod-meitnerium-lon1
@@ -190,63 +227,26 @@
      55 prod-jerry-se-scanners-us-west
      59 prod-jerry-se-scanners-eu-central
      59 prod-jerry-se-scanners-eu-west
-      5 dev-boron-fra1
-      5 dev-boron-sfo2
-      5 dev-boron-sfo3
-      5 dev-boron-tor1
-      5 dev-meitnerium-ams3
-      5 dev-meitnerium-fra1
-      5 dev-meitnerium-lon1
-      5 dev-meitnerium-nyc1
-      5 dev-meitnerium-nyc3
-      5 dev-meitnerium-sfo2
-      5 dev-meitnerium-sfo3
-      5 dev-meitnerium-sgp1
-      5 dev-meitnerium-tor1
-      5 prod-jerry-se-endor-ap-southeast
-      5 prod-jerry-se-endor-eu-west
-      5 prod-jerry-se-jakku-ap-southeast
-      5 prod-jerry-se-jakku-eu-west
-      5 prod-jerry-se-kamino-ap-southeast
-      5 prod-jerry-se-kamino-eu-west
-      5 prod-jerry-se-kashyyyk-ap-southeast
-      5 prod-jerry-se-kashyyyk-eu-west
-      6 prod-jerry-se-clients-ca-central
-      6 prod-jerry-se-clients-eu-central
-      6 prod-jerry-se-clients-eu-west
-      6 prod-jerry-se-clients-us-east
-      6 prod-jerry-se-clients-us-west
-      6 prod-jerry-se-jakku-ca-central
-      6 prod-jerry-se-jakku-nyc1
-      6 prod-jerry-se-jakku-sfo2
-      6 prod-jerry-se-kamino-ca-central
-      6 prod-jerry-se-kamino-nyc1
-      6 prod-jerry-se-kamino-sfo2
-      6 prod-jerry-se-kashyyyk-ca-central
-      6 prod-jerry-se-kashyyyk-nyc1
-      6 prod-jerry-se-kashyyyk-sfo2
-      6 prod-jerry-se-naboo-tor1
-      6 prod-mendelevium-ams3
-      6 prod-mercury-sfo2
-      6 prod-mercury-sfo3
      72 prod-jerry-se-hoth-tor1
-      7 prod-jerry-se-naboo-us-central
-      7 prod-jerry-se-naboo-us-east
-      7 prod-jerry-se-naboo-us-west
      80 prod-jerry-se-scanners-blr1
      80 prod-jerry-se-scanners-sgp1
      89 prod-jerry-se-hoth-us-east
      89 prod-jerry-se-hoth-us-west
-      8 prod-barium-ams3
-      8 prod-barium-lon1
-      8 prod-barium-nyc1
-      8 prod-barium-nyc3
-      8 prod-barium-sgp1
-      8 prod-jerry-se-naboo-us-southeast
-      8 prod-silicon-ams3
-      8 prod-silicon-lon1
-      8 prod-silicon-nyc1
-      8 prod-silicon-nyc3
-      8 prod-silicon-sgp1
      90 prod-jerry-se-hoth-us-central
      90 prod-jerry-se-hoth-us-southeast
+    108 prod-boron-ams3
+    108 prod-boron-lon1
+    108 prod-boron-nyc1
+    108 prod-boron-nyc3
+    108 prod-boron-sgp1
+    110 prod-boron-fra1
+    110 prod-boron-sfo2
+    110 prod-boron-sfo3
+    110 prod-boron-tor1
+    120 prod-jerry-se-scanners-ams3
+    120 prod-jerry-se-scanners-lon1
+    120 prod-jerry-se-scanners-nyc1
+    120 prod-jerry-se-scanners-sfo2
+    120 prod-jerry-se-scanners-tor1
+    180 prod-jerry-se-hoth-nyc1
+    180 prod-jerry-se-hoth-sfo2
