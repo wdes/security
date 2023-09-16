@@ -3282,6 +3282,14 @@
 162.243.141.42
 # apzg-0729a-149.stretchoid.com.
 162.243.141.48
+# apzg-0914-x-000.stretchoid.com.
+192.241.225.11
+# apzg-0914-x-001.stretchoid.com.
+198.199.94.11
+# apzg-0914-x-002.stretchoid.com.
+192.241.223.4
+# apzg-0914-x-003.stretchoid.com.
+162.243.147.4
 # azpg-0725a-000.stretchoid.com.
 198.199.105.49
 # azpg-0725a-001.stretchoid.com.
