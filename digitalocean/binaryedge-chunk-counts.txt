@@ -170,6 +170,8 @@
      12 prod-magnesium-sfo2
      12 prod-magnesium-sfo3
      12 prod-magnesium-tor1
+     12 prod-uranium-nyc3
+     14 prod-carbon-fra1
      15 prod-jerry-se-endor-ca-central
      16 prod-jerry-se-naboo-nyc1
      16 prod-jerry-se-naboo-sfo2
@@ -179,6 +181,7 @@
      16 prod-sulfur-sfo3
      16 prod-sulfur-tor1
      18 jerry-se-do-na-east-unbounds
+     19 prod-uranium-fra1
      20 jerry-se-do-eu-central-unbounds
      20 jerry-se-do-eu-west-unbounds
      20 jerry-se-do-na-central-unbounds
@@ -193,6 +196,7 @@
      20 prod-beryllium-sgp1
      20 prod-beryllium-syd1
      20 prod-beryllium-tor1
+     20 prod-carbon-nyc3
      20 prod-jerry-se-e16b-ams3
      20 prod-jerry-se-e16b-lon1
      20 prod-jerry-se-e16b-nyc1
@@ -201,12 +205,26 @@
      20 prod-jerry-se-hoth-lon1
      20 prod-jerry-se-hoth-syd1
      20 prod-jerry-se-managers-tor1
+     21 prod-uranium-sgp1
      22 prod-jerry-se-endor-us-central
      22 prod-jerry-se-endor-us-east
      22 prod-jerry-se-endor-us-west
+     22 prod-uranium-sfo3
      23 prod-jerry-se-endor-us-southeast
+     24 prod-carbon-sgp1
+     24 prod-uranium-nyc1
+     25 prod-carbon-sfo3
+     27 prod-carbon-ams3
+     27 prod-carbon-nyc1
+     27 prod-uranium-ams3
+     27 prod-uranium-lon1
+     28 prod-carbon-lon1
      28 prod-jerry-se-scanners-ap-south
+     29 prod-carbon-sfo2
+     29 prod-carbon-tor1
      29 prod-jerry-se-scanners-ap-west
+     29 prod-uranium-sfo2
+     29 prod-uranium-tor1
      30 prod-jerry-se-endor-tor1
      36 prod-jerry-se-hoth-ca-central
      40 prod-jerry-se-managers-lon1
