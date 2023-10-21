@@ -258,8 +258,8 @@
      55 prod-jerry-se-scanners-us-east
      55 prod-jerry-se-scanners-us-west
      58 prod-carbon-tor1
-     58 prod-jerry-se-hoth-lon1
      58 prod-uranium-tor1
+     59 prod-jerry-se-hoth-lon1
      59 prod-jerry-se-scanners-eu-central
      59 prod-jerry-se-scanners-eu-west
      60 prod-jerry-se-endor-tor1
@@ -294,13 +294,13 @@
     160 prod-boron-lon1
     165 prod-boron-tor1
     180 prod-jerry-se-scanners-lon1
-    198 prod-jerry-se-hoth-tor1
+    211 prod-jerry-se-hoth-tor1
     235 prod-jerry-se-scanners-ams3
     251 prod-meitnerium-nyc1
     255 prod-jerry-se-scanners-nyc1
-    270 prod-jerry-se-scanners-sfo2
+    273 prod-jerry-se-scanners-sfo2
     281 prod-meitnerium-sfo2
     293 prod-boron-nyc1
     328 prod-boron-sfo2
-    617 prod-jerry-se-hoth-nyc1
-    670 prod-jerry-se-hoth-sfo2
+    712 prod-jerry-se-hoth-nyc1
+    745 prod-jerry-se-hoth-sfo2
