@@ -9,11 +9,9 @@
       1 prod-fermium-sfo3
       1 prod-fermium-tor1
       1 prod-radium-fra1
-      2 dev-barium-nyc1
       2 dev-barium-sfo3
       2 dev-barium-tor1
       2 dev-beryllium-ams3
-      2 dev-mercury-nyc1
       2 dev-mercury-sfo3
       2 do-prod-eu-central-proxys-1102
       2 do-prod-eu-west-proxys-1102
@@ -42,6 +40,8 @@
       2 prod-radon-sfo3
       2 prod-radon-sgp1
       2 prod-radon-tor1
+      3 dev-barium-nyc1
+      3 dev-mercury-nyc1
       3 prod-aluminum-sfo2
       3 prod-erbium-sfo2
       3 prod-fermium-sfo2
@@ -64,12 +64,10 @@
       3 prod-mendelevium-ca-central
       3 prod-mendelevium-eu-central
       3 prod-mendelevium-eu-west
-      4 dev-barium-sfo2
-      4 dev-beryllium-nyc1
-      4 dev-beryllium-sfo2
-      4 dev-mercury-sfo2
       4 prod-jerry-se-non-allowlisted-lon1
       4 prod-mendelevium-syd1
+      5 dev-barium-sfo2
+      5 dev-mercury-sfo2
       5 prod-jerry-se-endor-ap-southeast
       5 prod-jerry-se-endor-eu-west
       5 prod-jerry-se-jakku-ap-southeast
@@ -81,6 +79,8 @@
       5 prod-jerry-se-naboo-lon1
       5 prod-jerry-se-utils-lon1
       5 prod-mercury-sgp1
+      6 dev-beryllium-nyc1
+      6 dev-beryllium-sfo2
       6 prod-jerry-se-clients-ca-central
       6 prod-jerry-se-clients-eu-central
       6 prod-jerry-se-clients-eu-west
@@ -159,7 +159,6 @@
      14 prod-manganese-sfo3
      14 prod-silicon-fra1
      14 prod-silicon-sfo3
-     15 dev-meitnerium-lon1
      15 prod-barium-fra1
      15 prod-barium-tor1
      15 prod-jerry-se-endor-ca-central
@@ -173,15 +172,14 @@
      15 prod-manganese-ams3
      15 prod-manganese-nyc3
      15 prod-silicon-tor1
-     16 dev-meitnerium-tor1
      16 prod-magnesium-fra1
      17 prod-magnesium-ams3
      17 prod-magnesium-sfo3
      17 prod-mendelevium-nyc1
-     18 dev-meitnerium-nyc1
+     18 dev-meitnerium-lon1
      18 jerry-se-do-na-east-unbounds
      18 prod-mendelevium-sfo2
-     19 dev-boron-nyc1
+     19 dev-meitnerium-tor1
      20 jerry-se-do-eu-central-unbounds
      20 jerry-se-do-eu-west-unbounds
      20 jerry-se-do-na-central-unbounds
@@ -193,19 +191,19 @@
      21 prod-manganese-lon1
      21 prod-manganese-tor1
      21 prod-sulfur-nyc3
-     22 dev-meitnerium-sfo2
      22 prod-jerry-se-endor-us-central
      22 prod-jerry-se-endor-us-east
      22 prod-jerry-se-endor-us-west
+     23 dev-meitnerium-nyc1
      23 prod-jerry-se-clients-nyc1
      23 prod-jerry-se-endor-us-southeast
      23 prod-magnesium-nyc1
-     24 dev-boron-sfo2
      24 prod-jerry-se-kamino-lon1
      24 prod-magnesium-tor1
      24 prod-silicon-nyc1
      24 prod-sulfur-sfo3
      24 prod-sulfur-tor1
+     25 dev-boron-nyc1
      25 prod-jerry-se-clients-ams3
      25 prod-jerry-se-clients-lon1
      25 prod-jerry-se-clients-sfo2
@@ -216,6 +214,7 @@
      26 prod-barium-nyc1
      27 prod-beryllium-fra1
      27 prod-manganese-sfo2
+     28 dev-meitnerium-sfo2
      28 prod-beryllium-sfo3
      28 prod-beryllium-sgp1
      28 prod-jerry-se-scanners-ap-south
@@ -230,6 +229,7 @@
      30 prod-jerry-se-kamino-tor1
      30 prod-jerry-se-kashyyyk-tor1
      30 prod-magnesium-sfo2
+     31 dev-boron-sfo2
      31 prod-carbon-fra1
      33 prod-uranium-nyc3
      34 prod-uranium-fra1
