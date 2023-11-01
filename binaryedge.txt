@@ -1612,14 +1612,20 @@
 67.205.128.156
 # prod-beryllium-nyc1-204.do.binaryedge.ninja.
 68.183.125.200
+# prod-beryllium-nyc1-210.do.binaryedge.ninja.
+143.198.168.136
 # prod-beryllium-nyc1-24.do.binaryedge.ninja.
 198.199.79.97
+# prod-beryllium-nyc1-24.do.binaryedge.ninja.
+204.48.25.63
 # prod-beryllium-nyc1-24.do.binaryedge.ninja.
 68.183.110.200
 # prod-beryllium-nyc1-30.do.binaryedge.ninja.
 137.184.49.28
 # prod-beryllium-nyc1-30.do.binaryedge.ninja.
 198.199.77.4
+# prod-beryllium-nyc1-30.do.binaryedge.ninja.
+204.48.17.135
 # prod-beryllium-nyc1-31.do.binaryedge.ninja.
 165.227.83.200
 # prod-beryllium-nyc1-31.do.binaryedge.ninja.
@@ -21610,6 +21616,8 @@
 143.198.34.66
 # prod-meitnerium-tor1-48.do.binaryedge.ninja.
 159.203.16.133
+# prod-meitnerium-tor1-50.do.binaryedge.ninja.
+138.197.154.171
 # prod-meitnerium-tor1-52.do.binaryedge.ninja.
 137.184.166.20
 # prod-meitnerium-tor1-52.do.binaryedge.ninja.
