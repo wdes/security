@@ -174,8 +174,8 @@
      18 jerry-se-do-na-east-unbounds
      18 prod-mendelevium-lon1
      18 prod-mendelevium-tor1
-     18 prod-radon-sfo2
      19 prod-radium-sfo2
+     19 prod-radon-sfo2
      20 jerry-se-do-eu-central-unbounds
      20 jerry-se-do-eu-west-unbounds
      20 jerry-se-do-na-central-unbounds
@@ -232,8 +232,8 @@
      39 dev-boron-nyc1
      39 prod-manganese-sfo2
      40 prod-jerry-se-naboo-sfo2
-     41 prod-magnesium-sfo2
      41 prod-uranium-sgp1
+     42 prod-magnesium-sfo2
      43 prod-barium-sfo2
      43 prod-carbon-nyc3
      43 prod-silicon-sfo2
@@ -293,14 +293,14 @@
     201 prod-uranium-nyc1
     211 prod-jerry-se-hoth-tor1
     213 prod-carbon-nyc1
-    229 prod-uranium-sfo2
     230 prod-carbon-sfo2
+    230 prod-uranium-sfo2
     235 prod-jerry-se-scanners-ams3
     256 prod-jerry-se-scanners-nyc1
     289 prod-jerry-se-scanners-sfo2
     429 prod-meitnerium-nyc1
     437 prod-boron-nyc1
-    466 prod-meitnerium-sfo2
+    467 prod-meitnerium-sfo2
     492 prod-boron-sfo2
     712 prod-jerry-se-hoth-nyc1
     745 prod-jerry-se-hoth-sfo2
