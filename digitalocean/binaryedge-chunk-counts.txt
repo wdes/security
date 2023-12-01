@@ -280,14 +280,14 @@
     140 prod-boron-nyc3
     148 prod-boron-sgp1
     150 prod-jerry-se-scanners-tor1
-    152 prod-beryllium-nyc1
     152 prod-boron-fra1
+    157 prod-beryllium-nyc1
     159 prod-boron-sfo3
     160 prod-boron-ams3
     160 prod-boron-lon1
     165 prod-boron-tor1
     165 prod-meitnerium-lon1
-    170 prod-beryllium-sfo2
+    176 prod-beryllium-sfo2
     180 prod-jerry-se-scanners-lon1
     196 prod-meitnerium-tor1
     201 prod-uranium-nyc1
