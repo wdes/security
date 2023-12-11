@@ -2,6 +2,8 @@
       1 dev-beryllium-fra1
       1 dev-beryllium-lon1
       1 prod-aluminum-tor1
+      1 prod-dysprosium-nyc1
+      1 prod-dysprosium-sfo2
       1 prod-erbium-ams3
       1 prod-erbium-fra1
       1 prod-erbium-sfo3

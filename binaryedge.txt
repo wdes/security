@@ -8180,6 +8180,10 @@
 147.182.152.204
 # prod-carbon-tor1-92.do.binaryedge.ninja.
 159.203.57.173
+# prod-dysprosium-nyc1-0.do.binaryedge.ninja.
+174.138.42.246
+# prod-dysprosium-sfo2-1.do.binaryedge.ninja.
+165.22.175.88
 # prod-erbium-ams3-4.do.binaryedge.ninja.
 159.223.216.38
 # prod-erbium-fra1-3.do.binaryedge.ninja.
