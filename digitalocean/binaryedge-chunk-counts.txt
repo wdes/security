@@ -58,12 +58,11 @@
       3 prod-mendelevium-ca-central
       3 prod-mendelevium-eu-central
       3 prod-mendelevium-eu-west
-      4 dev-mercury-nyc1
       4 prod-aluminum-nyc1
       4 prod-fermium-nyc1
       4 prod-jerry-se-non-allowlisted-lon1
       4 prod-mendelevium-syd1
-      5 dev-barium-nyc1
+      5 dev-mercury-nyc1
       5 prod-aluminum-sfo2
       5 prod-erbium-nyc1
       5 prod-erbium-sfo2
@@ -79,8 +78,7 @@
       5 prod-jerry-se-naboo-lon1
       5 prod-jerry-se-utils-lon1
       5 prod-mercury-sgp1
-      6 dev-barium-sfo2
-      6 dev-mercury-sfo2
+      6 dev-barium-nyc1
       6 prod-jerry-se-clients-ca-central
       6 prod-jerry-se-clients-eu-central
       6 prod-jerry-se-clients-eu-west
@@ -94,8 +92,10 @@
       6 prod-mendelevium-sgp1
       6 prod-mercury-ams3
       6 prod-mercury-nyc3
+      7 dev-barium-sfo2
       7 dev-boron-nyc3
       7 dev-boron-sgp1
+      7 dev-mercury-sfo2
       7 prod-jerry-se-naboo-us-central
       7 prod-jerry-se-naboo-us-east
       7 prod-jerry-se-naboo-us-west
@@ -110,8 +110,6 @@
       9 prod-mendelevium-ams3
       9 prod-mendelevium-fra1
       9 prod-mercury-sfo3
-     10 dev-beryllium-nyc1
-     10 dev-beryllium-sfo2
      10 dev-boron-tor1
      10 dev-meitnerium-ams3
      10 dev-meitnerium-nyc3
@@ -134,15 +132,17 @@
      10 prod-jerry-se-kashyyyk-syd1
      10 prod-jerry-se-managers-eu-west
      10 prod-manganese-syd1
-     11 dev-meitnerium-fra1
      11 prod-barium-nyc3
      11 prod-silicon-lon1
      11 prod-silicon-sgp1
+     12 dev-meitnerium-fra1
      12 prod-barium-ams3
      12 prod-barium-lon1
      12 prod-barium-sgp1
      12 prod-silicon-ams3
      12 prod-silicon-nyc3
+     13 dev-beryllium-nyc1
+     13 dev-beryllium-sfo2
      13 prod-manganese-sgp1
      14 prod-barium-sfo3
      14 prod-magnesium-nyc3
@@ -184,24 +184,24 @@
      20 prod-jerry-se-endor-lon1
      20 prod-jerry-se-hoth-syd1
      21 prod-sulfur-nyc3
-     22 dev-meitnerium-lon1
      22 prod-jerry-se-endor-us-central
      22 prod-jerry-se-endor-us-east
      22 prod-jerry-se-endor-us-west
      22 prod-radium-sfo2
      22 prod-radon-sfo2
-     23 dev-meitnerium-tor1
      23 prod-jerry-se-clients-nyc1
      23 prod-jerry-se-endor-us-southeast
      24 prod-jerry-se-kamino-lon1
      24 prod-sulfur-sfo3
      24 prod-sulfur-tor1
+     25 dev-meitnerium-lon1
      25 prod-jerry-se-clients-ams3
      25 prod-jerry-se-clients-lon1
      25 prod-jerry-se-clients-sfo2
      25 prod-jerry-se-clients-tor1
      25 prod-jerry-se-jakku-lon1
      25 prod-jerry-se-kashyyyk-lon1
+     26 dev-meitnerium-tor1
      27 prod-beryllium-fra1
      28 prod-beryllium-sfo3
      28 prod-beryllium-sgp1
@@ -219,7 +219,6 @@
      30 prod-jerry-se-kashyyyk-tor1
      31 prod-carbon-fra1
      31 prod-magnesium-tor1
-     33 dev-meitnerium-nyc1
      33 prod-uranium-nyc3
      34 prod-uranium-fra1
      35 prod-mendelevium-nyc1
@@ -227,19 +226,19 @@
      36 prod-jerry-se-naboo-nyc1
      36 prod-mendelevium-sfo2
      39 prod-magnesium-nyc1
-     40 dev-meitnerium-sfo2
+     40 dev-meitnerium-nyc1
      40 prod-jerry-se-naboo-sfo2
      41 prod-manganese-nyc1
      41 prod-uranium-sgp1
      42 prod-silicon-nyc1
      43 prod-carbon-nyc3
-     44 dev-boron-nyc1
      44 prod-barium-nyc1
      45 prod-manganese-sfo2
      47 prod-carbon-sgp1
      47 prod-jerry-se-e16b-nyc1
      47 prod-uranium-sfo3
      48 prod-magnesium-sfo2
+     49 dev-meitnerium-sfo2
      49 prod-barium-sfo2
      49 prod-silicon-sfo2
      50 prod-jerry-se-e16b-ams3
@@ -248,8 +247,8 @@
      50 prod-jerry-se-e16b-tor1
      50 prod-jerry-se-managers-tor1
      50 prod-meitnerium-syd1
-     51 dev-boron-sfo2
      52 prod-carbon-sfo3
+     53 dev-boron-nyc1
      53 prod-jerry-se-scanners-ca-central
      54 prod-sulfur-nyc1
      54 prod-uranium-ams3
@@ -265,6 +264,7 @@
      59 prod-jerry-se-scanners-eu-central
      59 prod-jerry-se-scanners-eu-west
      60 prod-jerry-se-endor-tor1
+     61 dev-boron-sfo2
      80 prod-jerry-se-scanners-blr1
      80 prod-jerry-se-scanners-sgp1
      82 prod-meitnerium-fra1
