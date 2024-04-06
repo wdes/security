@@ -58,6 +58,7 @@
       3 prod-mendelevium-ca-central
       3 prod-mendelevium-eu-central
       3 prod-mendelevium-eu-west
+      3 prod-sulfur-lon1
       4 prod-jerry-se-non-allowlisted-lon1
       4 prod-mendelevium-syd1
       5 prod-aluminum-nyc1
@@ -191,7 +192,6 @@
      24 prod-jerry-se-kamino-lon1
      24 prod-radium-nyc1
      24 prod-sulfur-sfo3
-     24 prod-sulfur-tor1
      25 prod-jerry-se-clients-ams3
      25 prod-jerry-se-clients-lon1
      25 prod-jerry-se-clients-sfo2
@@ -201,6 +201,7 @@
      27 prod-beryllium-fra1
      27 prod-radium-sfo2
      27 prod-radon-sfo2
+     27 prod-sulfur-tor1
      28 dev-meitnerium-lon1
      28 prod-beryllium-sfo3
      28 prod-beryllium-sgp1
@@ -226,14 +227,11 @@
      40 prod-jerry-se-naboo-sfo2
      41 prod-uranium-sgp1
      43 prod-carbon-nyc3
-     45 prod-mendelevium-nyc1
-     46 prod-magnesium-nyc1
      47 prod-carbon-sgp1
      47 prod-jerry-se-e16b-nyc1
      47 prod-uranium-sfo3
+     48 prod-magnesium-nyc1
      49 dev-meitnerium-nyc1
-     49 prod-manganese-nyc1
-     49 prod-mendelevium-sfo2
      49 prod-silicon-nyc1
      50 prod-jerry-se-e16b-ams3
      50 prod-jerry-se-e16b-lon1
@@ -243,16 +241,17 @@
      50 prod-meitnerium-syd1
      52 prod-carbon-sfo3
      53 prod-jerry-se-scanners-ca-central
-     54 prod-manganese-sfo2
+     53 prod-manganese-nyc1
      54 prod-uranium-ams3
      54 prod-uranium-lon1
      55 prod-carbon-ams3
      55 prod-carbon-lon1
      55 prod-jerry-se-scanners-us-east
      55 prod-jerry-se-scanners-us-west
-     57 prod-magnesium-sfo2
      58 dev-meitnerium-sfo2
      58 prod-carbon-tor1
+     58 prod-magnesium-sfo2
+     58 prod-manganese-sfo2
      58 prod-uranium-tor1
      59 prod-jerry-se-hoth-lon1
      59 prod-jerry-se-scanners-eu-central
@@ -265,11 +264,13 @@
      68 prod-sulfur-sfo2
      69 prod-barium-sfo2
      71 dev-boron-sfo2
+     78 prod-mendelevium-nyc1
      80 prod-jerry-se-scanners-blr1
      80 prod-jerry-se-scanners-sgp1
      82 prod-meitnerium-nyc3
      82 prod-meitnerium-sgp1
      85 prod-meitnerium-sfo3
+     86 prod-mendelevium-sfo2
      88 prod-meitnerium-fra1
      89 prod-jerry-se-endor-nyc1
      89 prod-jerry-se-hoth-us-east
@@ -288,21 +289,21 @@
     160 prod-boron-lon1
     165 prod-boron-tor1
     180 prod-jerry-se-scanners-lon1
-    192 prod-meitnerium-lon1
     203 prod-uranium-nyc1
     211 prod-jerry-se-hoth-tor1
     215 prod-carbon-nyc1
+    225 prod-meitnerium-lon1
     230 prod-carbon-sfo2
     230 prod-uranium-sfo2
     235 prod-jerry-se-scanners-ams3
-    255 prod-meitnerium-tor1
     256 prod-jerry-se-scanners-nyc1
+    260 prod-meitnerium-tor1
     289 prod-jerry-se-scanners-sfo2
     297 prod-beryllium-nyc1
     338 prod-beryllium-sfo2
-    648 prod-boron-nyc1
-    676 prod-meitnerium-nyc1
+    657 prod-boron-nyc1
+    708 prod-meitnerium-nyc1
     712 prod-jerry-se-hoth-nyc1
-    737 prod-boron-sfo2
     745 prod-jerry-se-hoth-sfo2
-    747 prod-meitnerium-sfo2
+    748 prod-boron-sfo2
+    784 prod-meitnerium-sfo2
