@@ -4186,6 +4186,30 @@
 162.243.143.25
 # azpg-0725n-199.stretchoid.com.
 107.170.192.16
+# aztst-000.stretchoid.com.
+162.243.142.6
+# aztst-001.stretchoid.com.
+162.243.140.13
+# aztst-002.stretchoid.com.
+198.199.98.9
+# aztst-003.stretchoid.com.
+192.241.218.7
+# aztst-004.stretchoid.com.
+198.199.117.14
+# aztst-005.stretchoid.com.
+192.241.231.17
+# aztst-006.stretchoid.com.
+192.241.219.49
+# aztst-007.stretchoid.com.
+162.243.129.9
+# aztst-008.stretchoid.com.
+107.170.231.8
+# aztst-009.stretchoid.com.
+198.199.97.15
+# aztst-010.stretchoid.com.
+198.199.97.18
+# aztst-011.stretchoid.com.
+192.241.211.12
 # aztst-0719a-000.stretchoid.com.
 162.243.148.37
 # aztst-0719a-001.stretchoid.com.
