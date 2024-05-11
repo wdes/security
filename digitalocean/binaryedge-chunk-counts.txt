@@ -87,6 +87,7 @@
       6 prod-jerry-se-jakku-ca-central
       6 prod-jerry-se-kamino-ca-central
       6 prod-jerry-se-kashyyyk-ca-central
+      6 prod-meitnerium-de-fra1
       6 prod-mendelevium-nyc3
       6 prod-mendelevium-sfo3
       6 prod-mendelevium-sgp1
@@ -167,11 +168,13 @@
      17 prod-magnesium-ams3
      17 prod-magnesium-sfo3
      17 prod-manganese-fra1
+     17 prod-meitnerium-us4-nyc1
      17 prod-mercury-lon1
      17 prod-mercury-tor1
      18 jerry-se-do-na-east-unbounds
      18 prod-magnesium-fra1
      18 prod-mercury-nyc1
+     19 prod-meitnerium-us6-nyc1
      20 jerry-se-do-eu-central-unbounds
      20 jerry-se-do-eu-west-unbounds
      20 jerry-se-do-na-central-unbounds
@@ -179,17 +182,25 @@
      20 prod-beryllium-syd1
      20 prod-jerry-se-endor-lon1
      20 prod-jerry-se-hoth-syd1
+     20 prod-meitnerium-us9-nyc1
+     21 prod-meitnerium-us2-nyc1
      21 prod-sulfur-nyc3
      22 prod-jerry-se-endor-us-central
      22 prod-jerry-se-endor-us-east
      22 prod-jerry-se-endor-us-west
+     22 prod-meitnerium-us10-nyc1
+     22 prod-meitnerium-us5-nyc1
+     22 prod-meitnerium-us7-nyc1
+     22 prod-meitnerium-us8-nyc1
      22 prod-mendelevium-lon1
      22 prod-mendelevium-tor1
      22 prod-mercury-sfo2
      23 prod-jerry-se-clients-nyc1
      23 prod-jerry-se-endor-us-southeast
+     23 prod-meitnerium-us1-nyc1
      23 prod-radon-nyc1
      24 prod-jerry-se-kamino-lon1
+     24 prod-meitnerium-us3-nyc1
      24 prod-radium-nyc1
      24 prod-sulfur-sfo3
      25 prod-jerry-se-clients-ams3
@@ -198,6 +209,16 @@
      25 prod-jerry-se-clients-tor1
      25 prod-jerry-se-jakku-lon1
      25 prod-jerry-se-kashyyyk-lon1
+     25 prod-meitnerium-us1-sfo2
+     25 prod-meitnerium-us10-sfo2
+     25 prod-meitnerium-us2-sfo2
+     25 prod-meitnerium-us3-sfo2
+     25 prod-meitnerium-us4-sfo2
+     25 prod-meitnerium-us5-sfo2
+     25 prod-meitnerium-us6-sfo2
+     25 prod-meitnerium-us7-sfo2
+     25 prod-meitnerium-us8-sfo2
+     25 prod-meitnerium-us9-sfo2
      27 prod-beryllium-fra1
      27 prod-radium-sfo2
      27 prod-radon-sfo2
@@ -239,6 +260,8 @@
      50 prod-jerry-se-e16b-tor1
      50 prod-jerry-se-managers-tor1
      50 prod-meitnerium-syd1
+     50 prod-meitnerium-uk-lon1
+     51 prod-meitnerium-ca-tor1
      52 prod-carbon-sfo3
      53 prod-jerry-se-scanners-ca-central
      53 prod-manganese-nyc1
