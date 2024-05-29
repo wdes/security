@@ -1,4 +1,4 @@
-# Datacenters Network security toolkit
+# Wdes SAS security toolkit
 
 - `stretchoid.txt` (List of all known stretchoid IPs)
 - `binaryedge.txt` (List of all known binaryedge IPs)
@@ -12,3 +12,11 @@
 - https://github.com/szepeviktor/debian-server-tools/tree/master/security/myattackers-ipsets/ipset
 - https://github.com/wravoc/authlog-threats/blob/main/scanners
 - https://github.com/stamparm/maltrail/blob/master/trails/static/mass_scanner.txt
+
+## Bad actors to handle
+
+- scan-*.shadowserver.org example: scan-37-1d.shadowserver.org
+- *.scan.bufferover.run example: bogota.scan.bufferover.run
+- security.criminalip.com
+- zl-ams-nl-gr1-wk102b.internet-census.org
+- optout.scanopticon.com
