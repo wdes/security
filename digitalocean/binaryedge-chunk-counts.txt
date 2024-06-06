@@ -92,7 +92,6 @@
       7 dev-boron-sgp1
       7 dev-mercury-nyc1
       7 prod-aluminum-sfo2
-      7 prod-erbium-nyc1
       7 prod-erbium-sfo2
       7 prod-fermium-sfo2
       7 prod-jerry-se-naboo-us-central
@@ -101,6 +100,7 @@
       8 dev-boron-ams3
       8 dev-boron-fra1
       8 dev-boron-lon1
+      8 prod-erbium-nyc1
       8 prod-jerry-se-naboo-us-southeast
       9 dev-barium-sfo2
       9 dev-boron-sfo3
@@ -202,10 +202,10 @@
      28 prod-beryllium-sfo3
      28 prod-beryllium-sgp1
      28 prod-jerry-se-scanners-ap-south
-     28 prod-radon-nyc1
      29 prod-beryllium-nyc3
      29 prod-jerry-se-scanners-ap-west
      29 prod-radium-nyc1
+     29 prod-radon-nyc1
      30 prod-beryllium-ams3
      30 prod-beryllium-lon1
      30 prod-beryllium-tor1
@@ -215,8 +215,8 @@
      30 prod-sulfur-tor1
      31 dev-meitnerium-lon1
      31 prod-carbon-fra1
-     31 prod-radium-sfo2
      32 dev-meitnerium-tor1
+     32 prod-radium-sfo2
      32 prod-radon-sfo2
      33 prod-uranium-nyc3
      34 prod-magnesium-lon1
@@ -232,15 +232,15 @@
      42 prod-meitnerium-us9-nyc1
      43 prod-carbon-nyc3
      44 prod-meitnerium-us5-nyc1
-     44 prod-meitnerium-us6-nyc1
      44 prod-meitnerium-us8-nyc1
      45 prod-meitnerium-us1-nyc1
      45 prod-meitnerium-us10-nyc1
      45 prod-meitnerium-us3-nyc1
-     45 prod-meitnerium-us7-nyc1
-     46 prod-meitnerium-us2-nyc1
+     45 prod-meitnerium-us6-nyc1
+     46 prod-meitnerium-us7-nyc1
      47 prod-carbon-sgp1
      47 prod-jerry-se-e16b-nyc1
+     47 prod-meitnerium-us2-nyc1
      47 prod-uranium-sfo3
      50 prod-jerry-se-e16b-ams3
      50 prod-jerry-se-e16b-lon1
@@ -302,7 +302,7 @@
      96 prod-jerry-se-managers-lon1
     101 prod-meitnerium-uk-lon1
     102 prod-meitnerium-ca-tor1
-    121 prod-mendelevium-nyc1
+    123 prod-mendelevium-nyc1
     136 prod-mendelevium-sfo2
     140 prod-boron-nyc3
     148 prod-boron-sgp1

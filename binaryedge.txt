@@ -10881,6 +10881,8 @@
 # prod-erbium-nyc1-0.do.binaryedge.ninja.
 24.144.100.7
 # prod-erbium-nyc1-2.do.binaryedge.ninja.
+167.99.239.119
+# prod-erbium-nyc1-2.do.binaryedge.ninja.
 64.227.2.108
 # prod-erbium-nyc1-2.do.binaryedge.ninja.
 67.205.145.236
@@ -28471,6 +28473,8 @@
 # prod-meitnerium-us2-nyc1-28.do.binaryedge.ninja.
 206.189.204.17
 # prod-meitnerium-us2-nyc1-30.do.binaryedge.ninja.
+204.48.24.159
+# prod-meitnerium-us2-nyc1-30.do.binaryedge.ninja.
 208.68.39.214
 # prod-meitnerium-us2-nyc1-32.do.binaryedge.ninja.
 137.184.132.200
@@ -29175,6 +29179,8 @@
 # prod-meitnerium-us5-sfo2-9.do.binaryedge.ninja.
 157.230.160.37
 # prod-meitnerium-us6-nyc1-0.do.binaryedge.ninja.
+159.223.178.109
+# prod-meitnerium-us6-nyc1-0.do.binaryedge.ninja.
 192.241.138.217
 # prod-meitnerium-us6-nyc1-10.do.binaryedge.ninja.
 157.245.241.33
@@ -29442,6 +29448,8 @@
 143.244.145.46
 # prod-meitnerium-us7-nyc1-48.do.binaryedge.ninja.
 104.248.232.189
+# prod-meitnerium-us7-nyc1-48.do.binaryedge.ninja.
+159.223.188.161
 # prod-meitnerium-us7-nyc1-50.do.binaryedge.ninja.
 142.93.250.17
 # prod-meitnerium-us7-nyc1-50.do.binaryedge.ninja.
@@ -30253,6 +30261,8 @@
 # prod-mendelevium-nyc1-66.do.binaryedge.ninja.
 143.244.170.199
 # prod-mendelevium-nyc1-68.do.binaryedge.ninja.
+134.122.118.127
+# prod-mendelevium-nyc1-68.do.binaryedge.ninja.
 165.227.94.232
 # prod-mendelevium-nyc1-70.do.binaryedge.ninja.
 161.35.52.53
@@ -30284,6 +30294,8 @@
 192.241.148.103
 # prod-mendelevium-nyc1-84.do.binaryedge.ninja.
 143.244.162.64
+# prod-mendelevium-nyc1-84.do.binaryedge.ninja.
+204.48.31.166
 # prod-mendelevium-nyc1-86.do.binaryedge.ninja.
 147.182.137.134
 # prod-mendelevium-nyc1-86.do.binaryedge.ninja.
@@ -31014,6 +31026,8 @@
 167.172.120.35
 # prod-radium-sfo2-1.do.binaryedge.ninja.
 206.189.208.160
+# prod-radium-sfo2-1.do.binaryedge.ninja.
+68.183.175.150
 # prod-radium-sfo2-13.do.binaryedge.ninja.
 143.110.136.35
 # prod-radium-sfo2-13.do.binaryedge.ninja.
@@ -31098,6 +31112,8 @@
 64.227.8.124
 # prod-radon-nyc1-0.do.binaryedge.ninja.
 68.183.111.41
+# prod-radon-nyc1-10.do.binaryedge.ninja.
+161.35.58.144
 # prod-radon-nyc1-10.do.binaryedge.ninja.
 167.99.144.13
 # prod-radon-nyc1-12.do.binaryedge.ninja.
