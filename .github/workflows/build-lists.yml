@@ -68,7 +68,7 @@ jobs:
                     --jwt-file="${HOME}/.secret_jwt.pem" \
                     --gh-app-id='17453' \
                     --installation-id="${{ secrets.INSTALLATION_ID }}" \
-                    --repository-slug='datacenters-network/security' \
+                    --repository-slug='wdes/security' \
                     --target-branch='main' \
                     --assign='williamdes' \
                     --commit-author-email='sudo-bot@wdes.fr' \

@@ -20,8 +20,8 @@ if [ ! -d ./reverse_revisions/ ]; then
     mkdir ./reverse_revisions
 fi
 
-curl -A "https://github.com/datacenters-network/security" https://api.binaryedge.io/v1/minions | jq -r '.scanners[]' | sed '/^$/d' | sort -V > ./binaryedge_api_ips.txt
-curl -A "https://github.com/datacenters-network/security" https://api.binaryedge.io/v1/minions-ipv6 | jq -r '.scanners[]' | sed '/^$/d' | sort -V >> ./binaryedge_api_ips.txt
+curl -A "https://github.com/wdes/security" https://api.binaryedge.io/v1/minions | jq -r '.scanners[]' | sed '/^$/d' | sort -V > ./binaryedge_api_ips.txt
+curl -A "https://github.com/wdes/security" https://api.binaryedge.io/v1/minions-ipv6 | jq -r '.scanners[]' | sed '/^$/d' | sort -V >> ./binaryedge_api_ips.txt
 
 doRev () {
     dns-ptr-resolver $PWD/$1 1> binaryedge_revisions/$REV.txt
