@@ -11,7 +11,7 @@ UA="$1"
 
 set -x
 
-cd ./digitalocean/
+cd ./data/
 
 # Fetch digitalocean declared IPs
 curl https://digitalocean.com/geo/google.csv -s -L -# -o - | cut -d ',' -f 1 | sort | uniq > digitalocean_ips.txt

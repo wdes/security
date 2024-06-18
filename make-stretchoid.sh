@@ -10,7 +10,7 @@ set -eux
 
 REV="v-$(date --iso-8601=seconds)"
 
-cd ./digitalocean/
+cd ./data/
 
 if [ ! -d ./stretchoid_revisions/ ]; then
     mkdir ./stretchoid_revisions

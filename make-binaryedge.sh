@@ -10,7 +10,7 @@ set -eux
 
 REV="v-$(date --iso-8601=seconds)"
 
-cd ./digitalocean/
+cd ./data/
 
 if [ ! -d ./binaryedge_revisions/ ]; then
     mkdir ./binaryedge_revisions
