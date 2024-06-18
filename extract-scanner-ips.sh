@@ -48,7 +48,7 @@ cat found_ranges.txt | xargs -I {} grep -F "{}" digitalocean_announced_ips.txt |
 # Re scan
 dig -4 +noauthority +noadditional +nostats -x 107.170.202.77 @1.0.0.1
 
-cat stretchoid_ranges.txt | xargs -n1 prips | uniq | sort -V > stretchoid_digitalocean_possible_ips.txt
+cat stretchoid_ranges.txt | xargs -n1 prips | uniq | sort -V > stretchoid_possible_ips.txt
 cat binaryedge_ranges.txt | xargs -n1 prips | uniq | sort -V > binaryedge_digitalocean_possible_ips.txt
 
 # With failure handling
