@@ -16,11 +16,15 @@ jobs:
         environment:
             name: sudo-bot
         runs-on: ubuntu-latest
+        strategy:
+          fail-fast: false
+          matrix:
+            type: ["stretchoid", "binaryedge"]
         steps:
             - name: Checkout
               uses: actions/checkout@v4
             - name: Cache cargo binaries
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               id: cache-dns-ptr-resolver
               with:
                   path: ~/.cargo/bin/dns-ptr-resolver
@@ -35,10 +39,8 @@ jobs:
             - name: Install dns-ptr-resolver
               if: steps.cache-dns-ptr-resolver.outputs.cache-hit != 'true'
               run: cargo install dns-ptr-resolver@1.1.0
-            - name: Build the binaryedge list
-              run: ./make-binaryedge.sh
-            - name: Build the stretchoid list
-              run: ./make-stretchoid.sh
+            - name: Build the ${{ matrix.type }} list
+              run: ./make-${{ matrix.type }}.sh
             - name: Post the summary
               run: |
                 git add -A
@@ -47,14 +49,14 @@ jobs:
               run: |
                   printf '%s' "${{ secrets.GH_APP_JWT_PRIV_PEM_CONTENTS }}" > ${HOME}/.secret_jwt.pem
                   printf '%s' "${{ secrets.GPG_PRIVATE_KEY }}" > ${HOME}/.private-key.asc
-            - uses: actions/setup-node@v3
+            - uses: actions/setup-node@v4
               with:
                   node-version: 18
             - name: Get yarn cache directory path
               id: yarn-cache-dir-path
               run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
             - name: yarn cache
-              uses: actions/cache@v3
+              uses: actions/cache@v4
               with:
                   path: ${{ steps.yarn-cache-dir-path.outputs.dir }}
                   key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
