@@ -3,13 +3,11 @@ extern crate rouille;
 
 use chrono::Utc;
 use hmac::{Hmac, Mac};
-use rouille::Response;
-use rouille::ResponseBody;
+use rouille::{Request, Response, ResponseBody};
 use rusqlite::types::ToSqlOutput;
 use rusqlite::{named_params, Connection, OpenFlags, Result, ToSql};
 use sha2::Sha256;
 use std::fmt;
-use std::io;
 use std::str::FromStr;
 
 use hickory_client::client::SyncClient;
@@ -87,7 +85,7 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
                 .eq_case(&Name::from_str("binaryedge.ninja.").expect("Should parse")) =>
         {
             Ok(Scanners::Binaryedge)
-        },
+        }
         Some(ref x)
             if x.trim_to(2)
                 .eq_case(&Name::from_str("stretchoid.com").expect("Should parse")) =>
@@ -98,7 +96,6 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
     }
 }
 
-// The HTML document of the home page.
 static FORM: &str = r#"
 <html>
     <head>
@@ -113,9 +110,109 @@ static FORM: &str = r#"
             <p><input type="ip" name="ip" placeholder="An IPv4 or IPv6" /></p>
             <p><button>Report this IP</button></p>
         </form>
+        <form action="/scan" method="POST">
+            <p><textarea name="ips"></textarea></p>
+            <p><button>Scan</button></p>
+        </form>
     </body>
 </html>
 "#;
+
+fn handle_report(
+    conn: &Connection,
+    client: SyncClient<TcpClientConnection>,
+    request: &Request,
+) -> Response {
+    let data = try_or_400!(post_input!(request, {
+        ip: String,
+    }));
+
+    // We just print what was received on stdout. Of course in a real application
+    // you probably want to process the data, eg. store it in a database.
+    println!("Received data: {:?}", data);
+    let query_address = data.ip.parse().expect("To parse");
+
+    let ptr_result = get_ptr(query_address, client).unwrap();
+
+    match detect_scanner(&ptr_result) {
+        Ok(scanner_name) => {
+            let ip_type = if data.ip.contains(':') { 6 } else { 4 };
+            let scanner = Scanner {
+                ip: data.ip,
+                ip_type: ip_type,
+                scanner_name: scanner_name.clone(),
+                created_at: Utc::now().to_string(),
+                updated_at: Utc::now().to_string(),
+                last_seen_at: Utc::now().to_string(),
+                last_checked_at: Utc::now().to_string(),
+            };
+            save_scanner(&conn, &scanner).unwrap();
+            rouille::Response::html(match scanner_name {
+                Scanners::Binaryedge => format!(
+                    "Reported an escaped ninja! <b>{}</a> {:?}.",
+                    scanner.ip,
+                    ptr_result.result.unwrap()
+                ),
+                Scanners::Strechoid => format!(
+                    "Reported a stretchoid agent! <b>{}</a> {:?}.",
+                    scanner.ip,
+                    ptr_result.result.unwrap()
+                ),
+            })
+        }
+
+        Err(_) => rouille::Response::html(format!(
+            "The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.",
+            data.ip, ptr_result.result
+        )),
+    }
+}
+
+fn handle_list_scanners(conn: &Connection, scanner_name: String) -> Response {
+    let mut stmt = conn.prepare("SELECT ip FROM scanners WHERE scanner_name = :scanner_name ORDER BY ip_type, created_at").unwrap();
+    let mut rows = stmt
+        .query(named_params! { ":scanner_name": scanner_name })
+        .unwrap();
+    let mut ips: Vec<String> = vec![];
+    while let Some(row) = rows.next().unwrap() {
+        ips.push(row.get(0).unwrap());
+    }
+
+    Response {
+        status_code: 200,
+        headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into())],
+        data: ResponseBody::from_string(ips.join("\n")),
+        upgrade: None,
+    }
+}
+
+fn get_connection() -> Connection {
+    let path = "./snow-scanner.sqlite";
+    let conn = Connection::open_with_flags(
+        path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_CREATE
+            | OpenFlags::SQLITE_OPEN_FULL_MUTEX,
+    )
+    .unwrap();
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS scanners (
+            ip VARCHAR(255),
+            ip_type TINYINT(1),
+            scanner_name VARCHAR(255),
+            created_at DATETIME,
+            updated_at DATETIME,
+            last_seen_at DATETIME,
+            last_checked_at DATETIME,
+            PRIMARY KEY (ip, ip_type)
+        )",
+        (), // empty list of parameters.
+    )
+    .unwrap();
+    conn.pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))
+        .unwrap();
+    conn
+}
 
 fn main() -> Result<()> {
     println!("Now listening on localhost:8000");
@@ -125,30 +222,7 @@ fn main() -> Result<()> {
 
     rouille::start_server("localhost:8000", move |request| {
         let client = SyncClient::new(conn);
-        let path = "./snow-scanner.sqlite";
-        let conn = Connection::open_with_flags(
-            path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE
-                | OpenFlags::SQLITE_OPEN_CREATE
-                | OpenFlags::SQLITE_OPEN_FULL_MUTEX,
-        )
-        .unwrap();
-        conn.execute(
-            "CREATE TABLE IF NOT EXISTS scanners (
-                ip VARCHAR(255),
-                ip_type TINYINT(1),
-                scanner_name VARCHAR(255),
-                created_at DATETIME,
-                updated_at DATETIME,
-                last_seen_at DATETIME,
-                last_checked_at DATETIME,
-                PRIMARY KEY (ip, ip_type)
-            )",
-            (), // empty list of parameters.
-        )
-        .unwrap();
-        conn.pragma_update_and_check(None, "journal_mode", &"WAL", |_| Ok(()))
-            .unwrap();
+        let conn = get_connection();
 
         router!(request,
             (GET) (/) => {
@@ -159,48 +233,7 @@ fn main() -> Result<()> {
                 rouille::Response::text("pong")
             },
 
-            (POST) (/report) => {
-                let data = try_or_400!(post_input!(request, {
-                    ip: String,
-                }));
-
-                // We just print what was received on stdout. Of course in a real application
-                // you probably want to process the data, eg. store it in a database.
-                println!("Received data: {:?}", data);
-                let query_address = data.ip.parse().expect("To parse");
-
-                let ptr_result = get_ptr(query_address, client).unwrap();
-
-                match detect_scanner(&ptr_result) {
-                    Ok(scanner_name) => {
-                        let ip_type = if data.ip.contains(':') {6} else {4};
-                        let scanner = Scanner {
-                            ip: data.ip,
-                            ip_type: ip_type,
-                            scanner_name: scanner_name.clone(),
-                            created_at: Utc::now().to_string(),
-                            updated_at: Utc::now().to_string(),
-                            last_seen_at: Utc::now().to_string(),
-                            last_checked_at: Utc::now().to_string(),
-                        };
-                        save_scanner(&conn, &scanner).unwrap();
-                        rouille::Response::html(
-                            match scanner_name {
-                                Scanners::Binaryedge =>
-                                    format!("Reported an escaped ninja! <b>{}</a> {:?}.", scanner.ip, ptr_result.result.unwrap()),
-                                Scanners::Strechoid =>
-                                    format!("Reported a stretchoid agent! <b>{}</a> {:?}.", scanner.ip, ptr_result.result.unwrap())
-                            }
-                        )
-
-                    },
-
-                    Err(_) =>
-                    rouille::Response::html(
-                        format!("The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.", data.ip, ptr_result.result)
-                    )
-                }
-            },
+            (POST) (/report) => {handle_report(&conn, client, &request)},
 
             (POST) (/register) => {
                 let data = try_or_400!(post_input!(request, {
@@ -227,19 +260,7 @@ fn main() -> Result<()> {
             },
 
             (GET) (/scanners/{scanner_name: String}) => {
-                let mut stmt = conn.prepare("SELECT ip FROM scanners WHERE scanner_name = :scanner_name ORDER BY ip_type, created_at").unwrap();
-                let mut rows = stmt.query(named_params! { ":scanner_name": scanner_name }).unwrap();
-                let mut ips: Vec<String> = vec!();
-                while let Some(row) = rows.next().unwrap() {
-                    ips.push(row.get(0).unwrap());
-                }
-
-                Response {
-                    status_code: 200,
-                    headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into())],
-                    data: ResponseBody::from_string(ips.join("\n")),
-                    upgrade: None,
-                }
+                handle_list_scanners(&conn, scanner_name)
             },
             (GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
                 let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
