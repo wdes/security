@@ -1,0 +1,36 @@
+[package]
+name = "snow-scanner"
+version = "0.1.0"
+authors = ["William Desportes <williamdes@wdes.fr>"]
+edition = "2021"
+rust-version = "1.78.0"  # MSRV
+description = "A program to scan internet and find scanners"
+homepage = "https://github.com/wdes/snow-scanner/tree/v1.2.0-dev#readme"
+repository = "https://github.com/wdes/snow-scanner"
+readme = "README.md"
+keywords = ["dns", "validator"]
+categories = ["command-line-utilities"]
+license = "MPL-2.0"
+include = [
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/LICENSE",
+]
+
+[badges]
+github = { repository = "security", branch = "master" }
+is-it-maintained-issue-resolution = { repository = "security" }
+is-it-maintained-open-issues = { repository = "security" }
+maintenance = { status = "passively-maintained" }
+
+[[bin]]
+name = "snow-scanner"
+path = "src/main.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rouille = "3.6.2"
+hmac = "0.12.1"
+sha2 = "0.10.8"
+hex = "0.4.3"
