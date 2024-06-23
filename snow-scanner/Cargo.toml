@@ -38,3 +38,5 @@ rusqlite = { version = "0.31.0", features = ["bundled"] }
 dns-ptr-resolver = "1.2.0"
 hickory-client = { version = "0.24.1", default-features = false }
 chrono = "0.4.38"
+uuid7 = "1.0.0"
+cidr = "0.2.2"

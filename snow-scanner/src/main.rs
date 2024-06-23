@@ -1,15 +1,19 @@
 #[macro_use]
 extern crate rouille;
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
+use cidr::IpCidr;
 use hmac::{Hmac, Mac};
 use rouille::{Request, Response, ResponseBody};
 use rusqlite::types::ToSqlOutput;
+use rusqlite::Error as RusqliteError;
 use rusqlite::{named_params, Connection, OpenFlags, Result, ToSql};
 use sha2::Sha256;
-use std::fmt;
 use std::str::FromStr;
 use std::sync::Mutex;
+use std::time::Duration;
+use std::{fmt, thread};
+use uuid7::Uuid;
 
 use hickory_client::client::SyncClient;
 use hickory_client::rr::Name;
@@ -53,10 +57,23 @@ struct Scanner {
     ip: String,
     ip_type: u8,
     scanner_name: Scanners,
-    created_at: String,
-    updated_at: String,
-    last_seen_at: String,
-    last_checked_at: String,
+    ip_ptr: Option<String>,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
+    last_seen_at: Option<DateTime<Utc>>,
+    last_checked_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug)]
+struct ScanTask {
+    task_group_id: Uuid,
+    cidr: String,
+    created_by_username: String,
+    created_at: DateTime<Utc>,
+    updated_at: Option<DateTime<Utc>>,
+    started_at: Option<DateTime<Utc>>,
+    still_processing_at: Option<DateTime<Utc>>,
+    ended_at: Option<DateTime<Utc>>,
 }
 
 fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
@@ -68,10 +85,10 @@ fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
             ":ip": &scanner.ip,
             ":ip_type": &scanner.ip_type,
             ":scanner_name": &scanner.scanner_name,
-            ":created_at": &scanner.created_at,
-            ":updated_at": &scanner.updated_at,
-            ":last_seen_at": &scanner.last_seen_at,
-            ":last_checked_at": &scanner.last_checked_at
+            ":created_at": &scanner.created_at.to_string(),
+            ":updated_at": serialize_dt(scanner.updated_at),
+            ":last_seen_at": serialize_dt(scanner.last_seen_at),
+            ":last_checked_at": serialize_dt(scanner.last_checked_at)
         },
     ) {
         Ok(_) => {
@@ -80,6 +97,36 @@ fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
         Err(_) => {
             Err(())
         },
+    }
+}
+
+fn serialize_dt(dt: Option<DateTime<Utc>>) -> Option<String> {
+    match dt {
+        Some(dt) => Some(dt.to_string()),
+        None => None,
+    }
+}
+
+fn save_scan_task(conn: &Connection, scan_task: &ScanTask) -> Result<(), RusqliteError> {
+    match conn.execute(
+        "INSERT INTO scan_tasks (task_group_id, cidr, created_by_username, created_at, updated_at, started_at, ended_at, still_processing_at)
+        VALUES (:task_group_id, :cidr, :created_by_username, :created_at, :updated_at, :started_at, :ended_at, :still_processing_at)
+        ON CONFLICT(cidr, task_group_id) DO UPDATE SET updated_at = :updated_at, started_at = :started_at, ended_at = :ended_at, still_processing_at = :still_processing_at;",
+        named_params! {
+            ":task_group_id": &scan_task.task_group_id.to_string(),
+            ":cidr": &scan_task.cidr,
+            ":created_by_username": &scan_task.created_by_username,
+            ":created_at": &scan_task.created_at.to_string(),
+            ":updated_at": serialize_dt(scan_task.updated_at),
+            ":started_at": serialize_dt(scan_task.started_at),
+            ":ended_at": serialize_dt(scan_task.ended_at),
+            ":still_processing_at": serialize_dt(scan_task.still_processing_at),
+        },
+    ) {
+        Ok(_) => {
+            Ok(())
+        },
+        Err(err) => Err(err),
     }
 }
 
@@ -101,6 +148,68 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
     }
 }
 
+fn handle_ip2(conn: &Connection, ip: String) -> Result<Scanner, ResolvedResult> {
+    let query_address = ip.parse().expect(format!("To parse: {}", ip).as_str());
+
+    let client = get_dns_client();
+    let ptr_result = get_ptr(query_address, client).unwrap();
+
+    match detect_scanner(&ptr_result) {
+        Ok(scanner_name) => {
+            let ip_type = if ip.contains(':') { 6 } else { 4 };
+            let scanner = Scanner {
+                ip: ip,
+                ip_type: ip_type,
+                scanner_name: scanner_name.clone(),
+                ip_ptr: match ptr_result.result {
+                    Some(ptr) => Some(ptr.to_string()),
+                    None => None,
+                },
+                created_at: Utc::now(),
+                updated_at: None,
+                last_seen_at: None,
+                last_checked_at: None,
+            };
+            let db = conn;
+            save_scanner(&db, &scanner).unwrap();
+            Ok(scanner)
+        }
+
+        Err(_) => Err(ptr_result),
+    }
+}
+
+fn handle_ip(conn: &Mutex<Connection>, ip: String) -> Result<Scanner, ResolvedResult> {
+    let query_address = ip.parse().expect("To parse");
+
+    let client = get_dns_client();
+    let ptr_result = get_ptr(query_address, client).unwrap();
+
+    match detect_scanner(&ptr_result) {
+        Ok(scanner_name) => {
+            let ip_type = if ip.contains(':') { 6 } else { 4 };
+            let scanner = Scanner {
+                ip: ip,
+                ip_type: ip_type,
+                scanner_name: scanner_name.clone(),
+                ip_ptr: match ptr_result.result {
+                    Some(ptr) => Some(ptr.to_string()),
+                    None => None,
+                },
+                created_at: Utc::now(),
+                updated_at: None,
+                last_seen_at: None,
+                last_checked_at: None,
+            };
+            let db = conn.lock().unwrap();
+            save_scanner(&db, &scanner).unwrap();
+            Ok(scanner)
+        }
+
+        Err(_) => Err(ptr_result),
+    }
+}
+
 static FORM: &str = r#"
 <html>
     <head>
@@ -116,6 +225,7 @@ static FORM: &str = r#"
             <p><button>Report this IP</button></p>
         </form>
         <form action="/scan" method="POST">
+            <p><input type="text" name="username" placeholder="Your username for logging purposes" /></p>
             <p><textarea name="ips"></textarea></p>
             <p><button>Scan</button></p>
         </form>
@@ -125,9 +235,31 @@ static FORM: &str = r#"
 
 fn handle_scan(conn: &Mutex<Connection>, request: &Request) -> Response {
     let data = try_or_400!(post_input!(request, {
+        username: String,
         ips: String,
     }));
-    rouille::Response::html(data.ips.split('\n').collect::<Vec<&str>>().join("<br>"))
+
+    let db = conn.lock().unwrap();
+    let task_group_id = uuid7::uuid7();
+
+    for ip in data.ips.lines() {
+        let scan_task = ScanTask {
+            task_group_id: task_group_id,
+            cidr: ip.to_string(),
+            created_by_username: data.username.clone(),
+            created_at: Utc::now(),
+            updated_at: None,
+            started_at: None,
+            still_processing_at: None,
+            ended_at: None,
+        };
+        match save_scan_task(&db, &scan_task) {
+            Ok(_) => println!("Added {}", ip.to_string()),
+            Err(err) => eprintln!("Not added: {:?}", err),
+        }
+    }
+
+    rouille::Response::html(format!("New task added: {} !", task_group_id))
 }
 
 fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
@@ -135,43 +267,13 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
         ip: String,
     }));
 
-    // We just print what was received on stdout. Of course in a real application
-    // you probably want to process the data, eg. store it in a database.
-    println!("Received data: {:?}", data);
-    let query_address = data.ip.parse().expect("To parse");
+    match handle_ip(conn, data.ip.clone()) {
+        Ok(scanner) => rouille::Response::html(match scanner.scanner_name {
+            Scanners::Binaryedge => format!("Reported an escaped ninja! <b>{}</a>.", scanner.ip),
+            Scanners::Strechoid => format!("Reported a stretchoid agent! <b>{}</a>.", scanner.ip),
+        }),
 
-    let client = get_dns_client();
-    let ptr_result = get_ptr(query_address, client).unwrap();
-
-    match detect_scanner(&ptr_result) {
-        Ok(scanner_name) => {
-            let ip_type = if data.ip.contains(':') { 6 } else { 4 };
-            let scanner = Scanner {
-                ip: data.ip,
-                ip_type: ip_type,
-                scanner_name: scanner_name.clone(),
-                created_at: Utc::now().to_string(),
-                updated_at: Utc::now().to_string(),
-                last_seen_at: Utc::now().to_string(),
-                last_checked_at: Utc::now().to_string(),
-            };
-            let db = conn.lock().unwrap();
-            save_scanner(&db, &scanner).unwrap();
-            rouille::Response::html(match scanner_name {
-                Scanners::Binaryedge => format!(
-                    "Reported an escaped ninja! <b>{}</a> {:?}.",
-                    scanner.ip,
-                    ptr_result.result.unwrap()
-                ),
-                Scanners::Strechoid => format!(
-                    "Reported a stretchoid agent! <b>{}</a> {:?}.",
-                    scanner.ip,
-                    ptr_result.result.unwrap()
-                ),
-            })
-        }
-
-        Err(_) => rouille::Response::html(format!(
+        Err(ptr_result) => rouille::Response::html(format!(
             "The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.",
             data.ip, ptr_result.result
         )),
@@ -208,14 +310,30 @@ fn get_connection() -> Connection {
     .unwrap();
     conn.execute(
         "CREATE TABLE IF NOT EXISTS scanners (
-            ip VARCHAR(255),
-            ip_type TINYINT(1),
+            ip VARCHAR(255)NOT NULL,
+            ip_type TINYINT(1) NOT NULL,
             scanner_name VARCHAR(255),
-            created_at DATETIME,
-            updated_at DATETIME,
-            last_seen_at DATETIME,
-            last_checked_at DATETIME,
+            ip_ptr VARCHAR(255) NULL,
+            created_at DATETIME NOT NULL,
+            updated_at DATETIME NULL,
+            last_seen_at DATETIME NULL,
+            last_checked_at DATETIME NULL,
             PRIMARY KEY (ip, ip_type)
+        )",
+        (), // empty list of parameters.
+    )
+    .unwrap();
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS scan_tasks (
+            task_group_id VARCHAR(255)NOT NULL,
+            cidr VARCHAR(255)NOT NULL,
+            created_by_username VARCHAR(255)NOT NULL,
+            created_at DATETIMENOT NULL,
+            updated_at DATETIME NULL,
+            started_at DATETIME NOT NULL,
+            still_processing_at DATETIME NULL,
+            ended_at DATETIME NULL,
+            PRIMARY KEY (task_group_id, cidr)
         )",
         (), // empty list of parameters.
     )
@@ -240,6 +358,43 @@ fn main() -> Result<()> {
         .unwrap()
         .execute("SELECT 0 WHERE 0;", named_params! {})
         .expect("Failed to initialize database");
+
+    thread::spawn(|| loop {
+        let conn = get_connection();
+        let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at = 'NULL' ORDER BY created_at ASC").unwrap();
+        let mut rows = stmt.query(named_params! {}).unwrap();
+        println!("Waiting for jobs");
+        while let Some(row) = rows.next().unwrap() {
+            let task_group_id: String = row.get(0).unwrap();
+            let cidr_str: String = row.get(1).unwrap();
+            let cidr: IpCidr = cidr_str.parse().expect("Should parse CIDR");
+            println!("Picking up: {} -> {}", task_group_id, cidr);
+            println!("Range, from {} to {}", cidr.first(), cidr.last());
+            let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                named_params! {
+                    ":updated_at": Utc::now().to_string(),
+                    ":started_at": Utc::now().to_string(),
+                    ":cidr": cidr_str,
+                    ":task_group_id": task_group_id,
+                }).unwrap();
+            for addr in cidr.iter().addresses() {
+                match handle_ip2(&conn, addr.to_string()) {
+                    Ok(scanner) => println!("Processed {}", scanner.ip),
+                    Err(_) => println!("Processed {}", addr),
+                }
+            }
+            let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, ended_at = :ended_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                named_params! {
+                    ":updated_at": Utc::now().to_string(),
+                    ":ended_at": Utc::now().to_string(),
+                    ":cidr": cidr_str,
+                    ":task_group_id": task_group_id,
+                }).unwrap();
+        }
+
+        let two_hundred_millis = Duration::from_millis(500);
+        thread::sleep(two_hundred_millis);
+    });
 
     rouille::start_server("localhost:8000", move |request| {
         router!(request,
