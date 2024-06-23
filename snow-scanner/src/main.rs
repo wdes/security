@@ -12,7 +12,7 @@ use sha2::Sha256;
 use std::str::FromStr;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::{fmt, thread};
+use std::{env, fmt, thread};
 use uuid7::Uuid;
 
 use hickory_client::client::SyncClient;
@@ -369,7 +369,13 @@ fn get_dns_client() -> SyncClient<TcpClientConnection> {
 }
 
 fn main() -> Result<()> {
-    println!("Now listening on localhost:8000");
+    let server_address: String = if let Ok(env) = env::var("SERVER_ADDRESS") {
+        env
+    } else {
+        "localhost:8000".to_string()
+    };
+
+    println!("Now listening on {}", server_address);
 
     let conn = Mutex::new(get_connection());
     conn.lock()
@@ -414,7 +420,7 @@ fn main() -> Result<()> {
         thread::sleep(two_hundred_millis);
     });
 
-    rouille::start_server("localhost:8000", move |request| {
+    rouille::start_server(server_address, move |request| {
         router!(request,
             (GET) (/) => {
                 rouille::Response::html(FORM)
