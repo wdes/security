@@ -247,6 +247,15 @@ fn handle_scan(conn: &Mutex<Connection>, request: &Request) -> Response {
         ips: String,
     }));
 
+    if data.username.len() < 4 {
+        return Response {
+            status_code: 422,
+            headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into())],
+            data: ResponseBody::from_string("Invalid username"),
+            upgrade: None,
+        };
+    }
+
     let db = conn.lock().unwrap();
     let task_group_id = uuid7::uuid7();
 
@@ -317,10 +326,9 @@ fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: String) -> Respo
     }
 }
 
-fn get_connection() -> Connection {
-    let path = "./snow-scanner.sqlite";
+fn get_connection(db_path: &str) -> Connection {
     let conn = Connection::open_with_flags(
-        path,
+        db_path,
         OpenFlags::SQLITE_OPEN_READ_WRITE
             | OpenFlags::SQLITE_OPEN_CREATE
             | OpenFlags::SQLITE_OPEN_FULL_MUTEX,
@@ -328,9 +336,9 @@ fn get_connection() -> Connection {
     .unwrap();
     conn.execute(
         "CREATE TABLE IF NOT EXISTS scanners (
-            ip VARCHAR(255)NOT NULL,
+            ip VARCHAR(255) NOT NULL,
             ip_type TINYINT(1) NOT NULL,
-            scanner_name VARCHAR(255),
+            scanner_name VARCHAR(255) NOT NULL,
             ip_ptr VARCHAR(255) NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NULL,
@@ -343,12 +351,12 @@ fn get_connection() -> Connection {
     .unwrap();
     conn.execute(
         "CREATE TABLE IF NOT EXISTS scan_tasks (
-            task_group_id VARCHAR(255)NOT NULL,
-            cidr VARCHAR(255)NOT NULL,
-            created_by_username VARCHAR(255)NOT NULL,
-            created_at DATETIMENOT NULL,
+            task_group_id VARCHAR(255) NOT NULL,
+            cidr VARCHAR(255) NOT NULL,
+            created_by_username VARCHAR(255) NOT NULL,
+            created_at DATETIME NOT NULL,
             updated_at DATETIME NULL,
-            started_at DATETIME NOT NULL,
+            started_at DATETIME NULL,
             still_processing_at DATETIME NULL,
             ended_at DATETIME NULL,
             PRIMARY KEY (task_group_id, cidr)
@@ -377,15 +385,23 @@ fn main() -> Result<()> {
 
     println!("Now listening on {}", server_address);
 
-    let conn = Mutex::new(get_connection());
+    let db_file: String = if let Ok(env) = env::var("DB_FILE") {
+        env
+    } else {
+        "./snow-scanner.sqlite".to_string()
+    };
+
+    println!("Database will be saved at: {}", db_file);
+
+    let conn = Mutex::new(get_connection(db_file.as_str()));
     conn.lock()
         .unwrap()
         .execute("SELECT 0 WHERE 0;", named_params! {})
         .expect("Failed to initialize database");
 
-    thread::spawn(|| loop {
-        let conn = get_connection();
-        let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at = 'NULL' ORDER BY created_at ASC").unwrap();
+    thread::spawn(move || loop {
+        let conn = get_connection(db_file.as_str());
+        let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at IS NULL ORDER BY created_at ASC").unwrap();
         let mut rows = stmt.query(named_params! {}).unwrap();
         println!("Waiting for jobs");
         while let Some(row) = rows.next().unwrap() {
