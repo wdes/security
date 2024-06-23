@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rouille;
 
-use chrono::{DateTime, Utc};
+use chrono::{Utc, NaiveDateTime};
 use cidr::IpCidr;
 use hmac::{Hmac, Mac};
 use rouille::{Request, Response, ResponseBody};
@@ -26,7 +26,7 @@ type HmacSha256 = Hmac<Sha256>;
 
 #[derive(Debug, Clone)]
 enum Scanners {
-    Strechoid,
+    Stretchoid,
     Binaryedge,
 }
 
@@ -36,7 +36,7 @@ impl fmt::Display for Scanners {
             f,
             "{}",
             match self {
-                Self::Strechoid => "strechoid",
+                Self::Stretchoid => "stretchoid",
                 Self::Binaryedge => "binaryedge",
             }
         )
@@ -46,7 +46,7 @@ impl ToSql for Scanners {
     /// Converts Rust value to SQLite value
     fn to_sql(&self) -> Result<ToSqlOutput<'_>> {
         match self {
-            Self::Strechoid => Ok("strechoid".into()),
+            Self::Stretchoid => Ok("stretchoid".into()),
             Self::Binaryedge => Ok("binaryedge".into()),
         }
     }
@@ -58,10 +58,10 @@ struct Scanner {
     ip_type: u8,
     scanner_name: Scanners,
     ip_ptr: Option<String>,
-    created_at: DateTime<Utc>,
-    updated_at: Option<DateTime<Utc>>,
-    last_seen_at: Option<DateTime<Utc>>,
-    last_checked_at: Option<DateTime<Utc>>,
+    created_at: NaiveDateTime,
+    updated_at: Option<NaiveDateTime>,
+    last_seen_at: Option<NaiveDateTime>,
+    last_checked_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug)]
@@ -69,21 +69,22 @@ struct ScanTask {
     task_group_id: Uuid,
     cidr: String,
     created_by_username: String,
-    created_at: DateTime<Utc>,
-    updated_at: Option<DateTime<Utc>>,
-    started_at: Option<DateTime<Utc>>,
-    still_processing_at: Option<DateTime<Utc>>,
-    ended_at: Option<DateTime<Utc>>,
+    created_at: NaiveDateTime,
+    updated_at: Option<NaiveDateTime>,
+    started_at: Option<NaiveDateTime>,
+    still_processing_at: Option<NaiveDateTime>,
+    ended_at: Option<NaiveDateTime>,
 }
 
 fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
     match conn.execute(
-        "INSERT INTO scanners (ip, ip_type, scanner_name, created_at, updated_at, last_seen_at, last_checked_at)
-        VALUES (:ip, :ip_type, :scanner_name, :created_at, :updated_at, :last_seen_at, :last_checked_at)
-        ON CONFLICT(ip, ip_type) DO UPDATE SET updated_at = :updated_at, last_seen_at = :last_seen_at, last_checked_at = :last_checked_at;",
+        "INSERT INTO scanners (ip, ip_type, ip_ptr, scanner_name, created_at, updated_at, last_seen_at, last_checked_at)
+        VALUES (:ip, :ip_type, :ip_ptr, :scanner_name, :created_at, :updated_at, :last_seen_at, :last_checked_at)
+        ON CONFLICT(ip, ip_type) DO UPDATE SET updated_at = :updated_at, last_seen_at = :last_seen_at, last_checked_at = :last_checked_at, ip_ptr = :ip_ptr;",
         named_params! {
             ":ip": &scanner.ip,
             ":ip_type": &scanner.ip_type,
+            ":ip_ptr": &scanner.ip_ptr,
             ":scanner_name": &scanner.scanner_name,
             ":created_at": &scanner.created_at.to_string(),
             ":updated_at": &scanner.updated_at,
@@ -97,13 +98,6 @@ fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
         Err(_) => {
             Err(())
         },
-    }
-}
-
-fn serialize_dt_html(dt: Option<DateTime<Utc>>) -> String {
-    match dt {
-        Some(dt) => dt.to_string(),
-        None => "".to_string(),
     }
 }
 
@@ -140,9 +134,9 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
         }
         Some(ref x)
             if x.trim_to(2)
-                .eq_case(&Name::from_str("stretchoid.com").expect("Should parse")) =>
+                .eq_case(&Name::from_str("stretchoid.com.").expect("Should parse")) =>
         {
-            Ok(Scanners::Strechoid)
+            Ok(Scanners::Stretchoid)
         }
         _ => Err(()),
     }
@@ -169,7 +163,7 @@ fn handle_ip2(conn: &Connection, ip: String) -> Result<Scanner, Option<ResolvedR
                     Some(ptr) => Some(ptr.to_string()),
                     None => None,
                 },
-                created_at: Utc::now(),
+                created_at: Utc::now().naive_utc(),
                 updated_at: None,
                 last_seen_at: None,
                 last_checked_at: None,
@@ -204,7 +198,7 @@ fn handle_ip(conn: &Mutex<Connection>, ip: String) -> Result<Scanner, Option<Res
                     Some(ptr) => Some(ptr.to_string()),
                     None => None,
                 },
-                created_at: Utc::now(),
+                created_at: Utc::now().naive_utc(),
                 updated_at: None,
                 last_seen_at: None,
                 last_checked_at: None,
@@ -264,7 +258,7 @@ fn handle_scan(conn: &Mutex<Connection>, request: &Request) -> Response {
             task_group_id: task_group_id,
             cidr: ip.to_string(),
             created_by_username: data.username.clone(),
-            created_at: Utc::now(),
+            created_at: Utc::now().naive_utc(),
             updated_at: None,
             started_at: None,
             still_processing_at: None,
@@ -290,7 +284,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
                 "Reported an escaped ninja! <b>{}</a> known as {:?}.",
                 scanner.ip, scanner.ip_ptr
             ),
-            Scanners::Strechoid => format!(
+            Scanners::Stretchoid => format!(
                 "Reported a stretchoid agent! <b>{}</a> known as {:?}.",
                 scanner.ip, scanner.ip_ptr
             ),
@@ -357,7 +351,7 @@ fn handle_list_scan_tasks(conn: &Mutex<Connection>) -> Response {
     let mut stmt = db
         .prepare(
             r#"
-        SELECT task_group_id, cidr, created_by_username, unixepoch(started_at), unixepoch(still_processing_at), unixepoch(ended_at)
+        SELECT task_group_id, cidr, created_by_username, started_at, still_processing_at, ended_at
         FROM scan_tasks
         ORDER BY created_at, task_group_id ASC
         "#,
@@ -368,18 +362,18 @@ fn handle_list_scan_tasks(conn: &Mutex<Connection>) -> Response {
 
     while let Some(row) = rows.next().unwrap() {
         let cidr: String = row.get(1).unwrap();
-        let started_at: String = serialize_dt_html(row.get(3).unwrap());
-        let still_processing_at: String = serialize_dt_html(row.get(4).unwrap());
-        let ended_at: String = serialize_dt_html(row.get(5).unwrap());
+        let started_at: Option<NaiveDateTime> = row.get(3).unwrap();
+        let still_processing_at: Option<NaiveDateTime> = row.get(4).unwrap();
+        let ended_at: Option<NaiveDateTime> = row.get(5).unwrap();
         html_data.push(format!(
             "
             <tr>
                 <td>{cidr}</td>
-                <td>{started_at}</td>
-                <td>{still_processing_at}</td>
-                <td>{ended_at}</td>
+                <td>{:#?}</td>
+                <td>{:#?}</td>
+                <td>{:#?}</td>
             </tr>
-            "
+            ", started_at, still_processing_at, ended_at
         ));
     }
 
@@ -479,21 +473,34 @@ fn main() -> Result<()> {
             println!("Range, from {} to {}", cidr.first(), cidr.last());
             let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
                 named_params! {
-                    ":updated_at": Utc::now().to_string(),
-                    ":started_at": Utc::now().to_string(),
+                    ":updated_at": Utc::now().naive_utc().to_string(),
+                    ":started_at": Utc::now().naive_utc().to_string(),
                     ":cidr": cidr_str,
                     ":task_group_id": task_group_id,
                 }).unwrap();
-            for addr in cidr.iter().addresses() {
+            let addresses = cidr.iter().addresses();
+            let count = addresses.count();
+            let mut current = 0;
+            for addr in addresses {
                 match handle_ip2(&conn, addr.to_string()) {
                     Ok(scanner) => println!("Processed {}", scanner.ip),
                     Err(_) => println!("Processed {}", addr),
                 }
+                current += 1;
+                if (current / count) % 10 == 0 {
+                    let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = :still_processing_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                        named_params! {
+                            ":updated_at": Utc::now().naive_utc().to_string(),
+                            ":still_processing_at": Utc::now().naive_utc().to_string(),
+                            ":cidr": cidr_str,
+                            ":task_group_id": task_group_id,
+                        }).unwrap();
+                }
             }
             let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, ended_at = :ended_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
                 named_params! {
-                    ":updated_at": Utc::now().to_string(),
-                    ":ended_at": Utc::now().to_string(),
+                    ":updated_at": Utc::now().naive_utc().to_string(),
+                    ":ended_at": Utc::now().naive_utc().to_string(),
                     ":cidr": cidr_str,
                     ":task_group_id": task_group_id,
                 }).unwrap();
