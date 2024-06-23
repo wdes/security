@@ -19,7 +19,7 @@ use hickory_client::client::SyncClient;
 use hickory_client::rr::Name;
 use hickory_client::tcp::TcpClientConnection;
 
-use dns_ptr_resolver::{get_ptr, ResolvedResult};
+use dns_ptr_resolver::{get_ptr, ResolvedResult, ResolvingError};
 
 // Create alias for HMAC-SHA256
 type HmacSha256 = Hmac<Sha256>;
@@ -148,11 +148,15 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
     }
 }
 
-fn handle_ip2(conn: &Connection, ip: String) -> Result<Scanner, ResolvedResult> {
+fn handle_ip2(conn: &Connection, ip: String) -> Result<Scanner, Option<ResolvedResult>> {
     let query_address = ip.parse().expect(format!("To parse: {}", ip).as_str());
 
     let client = get_dns_client();
-    let ptr_result = get_ptr(query_address, client).unwrap();
+    let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
+        res
+    } else {
+        return Err(None);
+    };
 
     match detect_scanner(&ptr_result) {
         Ok(scanner_name) => {
@@ -175,15 +179,19 @@ fn handle_ip2(conn: &Connection, ip: String) -> Result<Scanner, ResolvedResult> 
             Ok(scanner)
         }
 
-        Err(_) => Err(ptr_result),
+        Err(_) => Err(Some(ptr_result)),
     }
 }
 
-fn handle_ip(conn: &Mutex<Connection>, ip: String) -> Result<Scanner, ResolvedResult> {
+fn handle_ip(conn: &Mutex<Connection>, ip: String) -> Result<Scanner, Option<ResolvedResult>> {
     let query_address = ip.parse().expect("To parse");
 
     let client = get_dns_client();
-    let ptr_result = get_ptr(query_address, client).unwrap();
+    let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
+        res
+    } else {
+        return Err(None);
+    };
 
     match detect_scanner(&ptr_result) {
         Ok(scanner_name) => {
@@ -206,7 +214,7 @@ fn handle_ip(conn: &Mutex<Connection>, ip: String) -> Result<Scanner, ResolvedRe
             Ok(scanner)
         }
 
-        Err(_) => Err(ptr_result),
+        Err(_) => Err(Some(ptr_result)),
     }
 }
 
@@ -269,13 +277,23 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
 
     match handle_ip(conn, data.ip.clone()) {
         Ok(scanner) => rouille::Response::html(match scanner.scanner_name {
-            Scanners::Binaryedge => format!("Reported an escaped ninja! <b>{}</a>.", scanner.ip),
-            Scanners::Strechoid => format!("Reported a stretchoid agent! <b>{}</a>.", scanner.ip),
+            Scanners::Binaryedge => format!(
+                "Reported an escaped ninja! <b>{}</a> known as {:?}.",
+                scanner.ip, scanner.ip_ptr
+            ),
+            Scanners::Strechoid => format!(
+                "Reported a stretchoid agent! <b>{}</a> known as {:?}.",
+                scanner.ip, scanner.ip_ptr
+            ),
         }),
 
         Err(ptr_result) => rouille::Response::html(format!(
             "The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.",
-            data.ip, ptr_result.result
+            data.ip,
+            match ptr_result {
+                Some(res) => res.result,
+                None => None,
+            }
         )),
     }
 }
