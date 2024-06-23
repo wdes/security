@@ -19,7 +19,7 @@ use hickory_client::client::SyncClient;
 use hickory_client::rr::Name;
 use hickory_client::tcp::TcpClientConnection;
 
-use dns_ptr_resolver::{get_ptr, ResolvedResult, ResolvingError};
+use dns_ptr_resolver::{get_ptr, ResolvedResult};
 
 // Create alias for HMAC-SHA256
 type HmacSha256 = Hmac<Sha256>;
@@ -86,9 +86,9 @@ fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
             ":ip_type": &scanner.ip_type,
             ":scanner_name": &scanner.scanner_name,
             ":created_at": &scanner.created_at.to_string(),
-            ":updated_at": serialize_dt(scanner.updated_at),
-            ":last_seen_at": serialize_dt(scanner.last_seen_at),
-            ":last_checked_at": serialize_dt(scanner.last_checked_at)
+            ":updated_at": &scanner.updated_at,
+            ":last_seen_at": &scanner.last_seen_at,
+            ":last_checked_at": &scanner.last_checked_at
         },
     ) {
         Ok(_) => {
@@ -100,10 +100,10 @@ fn save_scanner(conn: &Connection, scanner: &Scanner) -> Result<(), ()> {
     }
 }
 
-fn serialize_dt(dt: Option<DateTime<Utc>>) -> Option<String> {
+fn serialize_dt_html(dt: Option<DateTime<Utc>>) -> String {
     match dt {
-        Some(dt) => Some(dt.to_string()),
-        None => None,
+        Some(dt) => dt.to_string(),
+        None => "".to_string(),
     }
 }
 
@@ -117,10 +117,10 @@ fn save_scan_task(conn: &Connection, scan_task: &ScanTask) -> Result<(), Rusqlit
             ":cidr": &scan_task.cidr,
             ":created_by_username": &scan_task.created_by_username,
             ":created_at": &scan_task.created_at.to_string(),
-            ":updated_at": serialize_dt(scan_task.updated_at),
-            ":started_at": serialize_dt(scan_task.started_at),
-            ":ended_at": serialize_dt(scan_task.ended_at),
-            ":still_processing_at": serialize_dt(scan_task.still_processing_at),
+            ":updated_at": &scan_task.updated_at,
+            ":started_at": &scan_task.started_at,
+            ":ended_at": &scan_task.ended_at,
+            ":still_processing_at": &scan_task.still_processing_at,
         },
     ) {
         Ok(_) => {
@@ -326,6 +326,73 @@ fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: String) -> Respo
     }
 }
 
+static SCAN_TASKS_HEAD: &str = r#"
+<html>
+    <head>
+        <title>Wdes - snow scanner | Scan tasks</title>
+    </head>
+    <body>
+    <table>
+        <thead>
+            <tr>
+                <th>CIDR</th>
+                <th>Started at</th>
+                <th>Still processing at</th>
+                <th>Ended at</th>
+            </tr>
+        </thead>
+        <tbody>
+"#;
+
+static SCAN_TASKS_FOOT: &str = r#"
+        </tbody>
+      </table>
+    </body>
+</html>
+"#;
+
+fn handle_list_scan_tasks(conn: &Mutex<Connection>) -> Response {
+    let db = conn.lock().unwrap();
+
+    let mut stmt = db
+        .prepare(
+            r#"
+        SELECT task_group_id, cidr, created_by_username, unixepoch(started_at), unixepoch(still_processing_at), unixepoch(ended_at)
+        FROM scan_tasks
+        ORDER BY created_at, task_group_id ASC
+        "#,
+        )
+        .unwrap();
+    let mut rows = stmt.query(named_params! {}).unwrap();
+    let mut html_data: Vec<String> = vec![SCAN_TASKS_HEAD.to_string()];
+
+    while let Some(row) = rows.next().unwrap() {
+        let cidr: String = row.get(1).unwrap();
+        let started_at: String = serialize_dt_html(row.get(3).unwrap());
+        let still_processing_at: String = serialize_dt_html(row.get(4).unwrap());
+        let ended_at: String = serialize_dt_html(row.get(5).unwrap());
+        html_data.push(format!(
+            "
+            <tr>
+                <td>{cidr}</td>
+                <td>{started_at}</td>
+                <td>{still_processing_at}</td>
+                <td>{ended_at}</td>
+            </tr>
+            "
+        ));
+    }
+
+    html_data.push(SCAN_TASKS_FOOT.to_string());
+
+    Response {
+        status_code: 200,
+        headers: vec![("Content-Type".into(), "text/html; charset=utf-8".into())],
+        data: ResponseBody::from_string(html_data.join("\n")),
+        upgrade: None,
+    }
+}
+
 fn get_connection(db_path: &str) -> Connection {
     let conn = Connection::open_with_flags(
         db_path,
@@ -448,6 +515,9 @@ fn main() -> Result<()> {
 
             (POST) (/report) => {handle_report(&conn, &request)},
             (POST) (/scan) => {handle_scan(&conn, &request)},
+            (GET) (/scan/tasks) => {
+                handle_list_scan_tasks(&conn)
+            },
 
             (POST) (/register) => {
                 let data = try_or_400!(post_input!(request, {
