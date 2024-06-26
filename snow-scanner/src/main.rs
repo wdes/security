@@ -460,54 +460,57 @@ fn main() -> Result<()> {
         .execute("SELECT 0 WHERE 0;", named_params! {})
         .expect("Failed to initialize database");
 
-    thread::spawn(move || loop {
+    thread::spawn(move || {
         let conn = get_connection(db_file.as_str());
-        let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at IS NULL ORDER BY created_at ASC").unwrap();
-        let mut rows = stmt.query(named_params! {}).unwrap();
-        println!("Waiting for jobs");
-        while let Some(row) = rows.next().unwrap() {
-            let task_group_id: String = row.get(0).unwrap();
-            let cidr_str: String = row.get(1).unwrap();
-            let cidr: IpCidr = cidr_str.parse().expect("Should parse CIDR");
-            println!("Picking up: {} -> {}", task_group_id, cidr);
-            println!("Range, from {} to {}", cidr.first(), cidr.last());
-            let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                named_params! {
-                    ":updated_at": Utc::now().naive_utc().to_string(),
-                    ":started_at": Utc::now().naive_utc().to_string(),
-                    ":cidr": cidr_str,
-                    ":task_group_id": task_group_id,
-                }).unwrap();
-            let addresses = cidr.iter().addresses();
-            let count = addresses.count();
-            let mut current = 0;
-            for addr in addresses {
-                match handle_ip2(&conn, addr.to_string()) {
-                    Ok(scanner) => println!("Processed {}", scanner.ip),
-                    Err(_) => println!("Processed {}", addr),
-                }
-                current += 1;
-                if (current / count) % 10 == 0 {
-                    let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = :still_processing_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                        named_params! {
-                            ":updated_at": Utc::now().naive_utc().to_string(),
-                            ":still_processing_at": Utc::now().naive_utc().to_string(),
-                            ":cidr": cidr_str,
-                            ":task_group_id": task_group_id,
-                        }).unwrap();
-                }
-            }
-            let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, ended_at = :ended_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                named_params! {
-                    ":updated_at": Utc::now().naive_utc().to_string(),
-                    ":ended_at": Utc::now().naive_utc().to_string(),
-                    ":cidr": cidr_str,
-                    ":task_group_id": task_group_id,
-                }).unwrap();
-        }
 
-        let two_hundred_millis = Duration::from_millis(500);
-        thread::sleep(two_hundred_millis);
+        loop {
+            let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at IS NULL ORDER BY created_at ASC").unwrap();
+            let mut rows = stmt.query(named_params! {}).unwrap();
+            println!("Waiting for jobs");
+            while let Some(row) = rows.next().unwrap() {
+                let task_group_id: String = row.get(0).unwrap();
+                let cidr_str: String = row.get(1).unwrap();
+                let cidr: IpCidr = cidr_str.parse().expect("Should parse CIDR");
+                println!("Picking up: {} -> {}", task_group_id, cidr);
+                println!("Range, from {} to {}", cidr.first(), cidr.last());
+                let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                    named_params! {
+                        ":updated_at": Utc::now().naive_utc().to_string(),
+                        ":started_at": Utc::now().naive_utc().to_string(),
+                        ":cidr": cidr_str,
+                        ":task_group_id": task_group_id,
+                    }).unwrap();
+                let addresses = cidr.iter().addresses();
+                let count = addresses.count();
+                let mut current = 0;
+                for addr in addresses {
+                    match handle_ip2(&conn, addr.to_string()) {
+                        Ok(scanner) => println!("Processed {}", scanner.ip),
+                        Err(_) => println!("Processed {}", addr),
+                    }
+                    current += 1;
+                    if (current / count) % 10 == 0 {
+                        let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = :still_processing_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                            named_params! {
+                                ":updated_at": Utc::now().naive_utc().to_string(),
+                                ":still_processing_at": Utc::now().naive_utc().to_string(),
+                                ":cidr": cidr_str,
+                                ":task_group_id": task_group_id,
+                            }).unwrap();
+                    }
+                }
+                let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, ended_at = :ended_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
+                    named_params! {
+                        ":updated_at": Utc::now().naive_utc().to_string(),
+                        ":ended_at": Utc::now().naive_utc().to_string(),
+                        ":cidr": cidr_str,
+                        ":task_group_id": task_group_id,
+                    }).unwrap();
+            }
+
+            let two_hundred_millis = Duration::from_millis(500);
+            thread::sleep(two_hundred_millis);
+        }
     });
 
     rouille::start_server(server_address, move |request| {
