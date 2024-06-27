@@ -49,7 +49,9 @@ impl FromStr for Scanners {
         match input {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
-            "censys" => Ok(Scanners::Censys),
+            "stretchoid.txt" => Ok(Scanners::Stretchoid),
+            "binaryedge.txt" => Ok(Scanners::Binaryedge),
+            "censys.txt" => Ok(Scanners::Censys),
             _ => Err(()),
         }
     }
@@ -315,7 +317,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
                 "Reported a stretchoid agent! <b>{}</a> known as {:?}.",
                 scanner.ip, scanner.ip_ptr
             ),
-            Scanners::Censys => format!("Not supported"),
+            _ => format!("Not supported"),
         }),
 
         Err(ptr_result) => rouille::Response::html(format!(
@@ -329,8 +331,29 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
     }
 }
 
-fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: Scanners) -> Response {
-    scanner_name.is_static();
+fn handle_list_scanners(
+    conn: &Mutex<Connection>,
+    scanner_name: Scanners,
+    request: &Request,
+) -> Response {
+    if scanner_name.is_static() {
+        // The `match_assets` function tries to find a file whose name corresponds to the URL
+        // of the request. The second parameter (`"."`) tells where the files to look for are
+        // located.
+        // In order to avoid potential security threats, `match_assets` will never return any
+        // file outside of this directory even if the URL is for example `/../../foo.txt`.
+        let response = rouille::match_assets(&request, "../data/");
+
+        if response.is_success() {
+            return response;
+        }
+        return Response {
+            status_code: 404,
+            headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into())],
+            data: ResponseBody::from_string("File not found.\n"),
+            upgrade: None,
+        };
+    }
     let db = conn.lock().unwrap();
     let mut stmt = db.prepare("SELECT ip FROM scanners WHERE scanner_name = :scanner_name ORDER BY ip_type, created_at").unwrap();
     let mut rows = stmt
@@ -584,7 +607,7 @@ fn main() -> Result<()> {
             },
 
             (GET) (/scanners/{scanner_name: Scanners}) => {
-                handle_list_scanners(&conn, scanner_name)
+                handle_list_scanners(&conn, scanner_name, &request)
             },
             (GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
                 let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
@@ -597,22 +620,6 @@ fn main() -> Result<()> {
                 // `verify_slice` will return `Ok(())` if code is correct, `Err(MacError)` otherwise
                 mac.verify_slice(&hex_key).unwrap();
 
-                if let Some(request) = request.remove_prefix(format!("/{}", api_key).as_str()) {
-                    // The `match_assets` function tries to find a file whose name corresponds to the URL
-                    // of the request. The second parameter (`"."`) tells where the files to look for are
-                    // located.
-                    // In order to avoid potential security threats, `match_assets` will never return any
-                    // file outside of this directory even if the URL is for example `/../../foo.txt`.
-                    let response = rouille::match_assets(&request, "../data/");
-
-                    // If a file is found, the `match_assets` function will return a response with a 200
-                    // status code and the content of the file. If no file is found, it will instead return
-                    // an empty 404 response.
-                    // Here we check whether if a file is found, and if so we return the response.
-                    if response.is_success() {
-                        return response;
-                    }
-                }
                 rouille::Response::empty_404()
             },
             // The code block is called if none of the other blocks matches the request.
