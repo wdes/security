@@ -28,14 +28,28 @@ type HmacSha256 = Hmac<Sha256>;
 enum Scanners {
     Stretchoid,
     Binaryedge,
+    Censys,
 }
 
+trait IsStatic {
+    fn is_static(self: &Self) -> bool;
+}
+
+impl IsStatic for Scanners {
+    fn is_static(self: &Self) -> bool {
+        match self {
+            Scanners::Censys => true,
+            _ => false,
+        }
+    }
+}
 impl FromStr for Scanners {
     type Err = ();
     fn from_str(input: &str) -> Result<Scanners, ()> {
         match input {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
+            "censys" => Ok(Scanners::Censys),
             _ => Err(()),
         }
     }
@@ -49,6 +63,7 @@ impl fmt::Display for Scanners {
             match self {
                 Self::Stretchoid => "stretchoid",
                 Self::Binaryedge => "binaryedge",
+                Self::Censys => "censys",
             }
         )
     }
@@ -59,6 +74,7 @@ impl ToSql for Scanners {
         match self {
             Self::Stretchoid => Ok("stretchoid".into()),
             Self::Binaryedge => Ok("binaryedge".into()),
+            Self::Censys => Ok("censys".into()),
         }
     }
 }
@@ -299,6 +315,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
                 "Reported a stretchoid agent! <b>{}</a> known as {:?}.",
                 scanner.ip, scanner.ip_ptr
             ),
+            Scanners::Censys => format!("Not supported"),
         }),
 
         Err(ptr_result) => rouille::Response::html(format!(
@@ -313,6 +330,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
 }
 
 fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: Scanners) -> Response {
+    scanner_name.is_static();
     let db = conn.lock().unwrap();
     let mut stmt = db.prepare("SELECT ip FROM scanners WHERE scanner_name = :scanner_name ORDER BY ip_type, created_at").unwrap();
     let mut rows = stmt
