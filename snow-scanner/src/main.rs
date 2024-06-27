@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate rouille;
 
-use chrono::{Utc, NaiveDateTime};
+use chrono::{NaiveDateTime, Utc};
 use cidr::IpCidr;
 use hmac::{Hmac, Mac};
 use rouille::{Request, Response, ResponseBody};
@@ -28,6 +28,17 @@ type HmacSha256 = Hmac<Sha256>;
 enum Scanners {
     Stretchoid,
     Binaryedge,
+}
+
+impl FromStr for Scanners {
+    type Err = ();
+    fn from_str(input: &str) -> Result<Scanners, ()> {
+        match input {
+            "stretchoid" => Ok(Scanners::Stretchoid),
+            "binaryedge" => Ok(Scanners::Binaryedge),
+            _ => Err(()),
+        }
+    }
 }
 
 impl fmt::Display for Scanners {
@@ -301,7 +312,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
     }
 }
 
-fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: String) -> Response {
+fn handle_list_scanners(conn: &Mutex<Connection>, scanner_name: Scanners) -> Response {
     let db = conn.lock().unwrap();
     let mut stmt = db.prepare("SELECT ip FROM scanners WHERE scanner_name = :scanner_name ORDER BY ip_type, created_at").unwrap();
     let mut rows = stmt
@@ -373,7 +384,8 @@ fn handle_list_scan_tasks(conn: &Mutex<Connection>) -> Response {
                 <td>{:#?}</td>
                 <td>{:#?}</td>
             </tr>
-            ", started_at, still_processing_at, ended_at
+            ",
+            started_at, still_processing_at, ended_at
         ));
     }
 
@@ -553,7 +565,7 @@ fn main() -> Result<()> {
                 rouille::Response::html(format!("Success! <b>{}</a>.", hex::encode(code_bytes)))
             },
 
-            (GET) (/scanners/{scanner_name: String}) => {
+            (GET) (/scanners/{scanner_name: Scanners}) => {
                 handle_list_scanners(&conn, scanner_name)
             },
             (GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
