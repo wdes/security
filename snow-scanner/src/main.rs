@@ -333,6 +333,7 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
 
 fn handle_list_scanners(
     conn: &Mutex<Connection>,
+    static_data_dir: &str,
     scanner_name: Scanners,
     request: &Request,
 ) -> Response {
@@ -342,7 +343,7 @@ fn handle_list_scanners(
         // located.
         // In order to avoid potential security threats, `match_assets` will never return any
         // file outside of this directory even if the URL is for example `/../../foo.txt`.
-        let response = rouille::match_assets(&request, "../data/");
+        let response = rouille::match_assets(&request, static_data_dir);
 
         if response.is_success() {
             return response;
@@ -505,6 +506,11 @@ fn main() -> Result<()> {
         "./snow-scanner.sqlite".to_string()
     };
 
+    let static_data_dir: String = match env::var("STATIC_DATA_DIR") {
+        Ok(val) => val,
+        Err(_) => "../data/".to_string(),
+    };
+
     println!("Database will be saved at: {}", db_file);
 
     let conn = Mutex::new(get_connection(db_file.as_str()));
@@ -607,7 +613,7 @@ fn main() -> Result<()> {
             },
 
             (GET) (/scanners/{scanner_name: Scanners}) => {
-                handle_list_scanners(&conn, scanner_name, &request)
+                handle_list_scanners(&conn, &static_data_dir, scanner_name, &request)
             },
             (GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
                 let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
