@@ -4,13 +4,10 @@
 
 - `https://security.wdes.eu/scanners/stretchoid.txt` (List of all known stretchoid IPs)
 - `https://security.wdes.eu/scanners/binaryedge.txt` (List of all known binaryedge IPs)
-- `https://security.wdes.eu/scanners/censys.txt` (List of all IPs declared by censys scanner on their FAQ)
+- `https://security.wdes.eu/scanners/censys.txt` (List of all IPs declared by censys scanner on their [FAQ](https://support.censys.io/hc/en-us/articles/360043177092-Opt-Out-of-Data-Collection)
+- `https://security.wdes.eu/scanners/internet-measurement.com.txt` (List of all IPs declared by internet-measurement.com on [their website](https://internet-measurement.com/#ips))
 - `https://security.wdes.eu/collections/wdes/bad-networks.txt` (List of some hand picked bad networks)
 - `https://security.wdes.eu/collections/bad-ips.txt` (List of some hand picked bad IPs that caused harm/attacks/scans to mail servers)
-
-## To be migrated
-
-- `internet-measurement.com.txt` (List of all IPs declared by internet-measurement.com on [their website](https://internet-measurement.com/#ips))
 
 ## Other similar projects
 

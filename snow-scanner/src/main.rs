@@ -29,6 +29,7 @@ enum Scanners {
     Stretchoid,
     Binaryedge,
     Censys,
+    InternetMeasurement,
 }
 
 trait IsStatic {
@@ -39,6 +40,7 @@ impl IsStatic for Scanners {
     fn is_static(self: &Self) -> bool {
         match self {
             Scanners::Censys => true,
+            Scanners::InternetMeasurement => true,
             _ => false,
         }
     }
@@ -52,6 +54,7 @@ impl FromStr for Scanners {
             "stretchoid.txt" => Ok(Scanners::Stretchoid),
             "binaryedge.txt" => Ok(Scanners::Binaryedge),
             "censys.txt" => Ok(Scanners::Censys),
+            "internet-measurement.com.txt" => Ok(Scanners::InternetMeasurement),
             _ => Err(()),
         }
     }
@@ -66,6 +69,7 @@ impl fmt::Display for Scanners {
                 Self::Stretchoid => "stretchoid",
                 Self::Binaryedge => "binaryedge",
                 Self::Censys => "censys",
+                Self::InternetMeasurement => "internet-measurement.com",
             }
         )
     }
@@ -77,6 +81,7 @@ impl ToSql for Scanners {
             Self::Stretchoid => Ok("stretchoid".into()),
             Self::Binaryedge => Ok("binaryedge".into()),
             Self::Censys => Ok("censys".into()),
+            Self::InternetMeasurement => Ok("internet-measurement.com".into()),
         }
     }
 }
