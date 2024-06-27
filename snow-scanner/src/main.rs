@@ -331,6 +331,25 @@ fn handle_report(conn: &Mutex<Connection>, request: &Request) -> Response {
     }
 }
 
+fn handle_get_collection(request: &Request, static_data_dir: &str) -> Response {
+    // The `match_assets` function tries to find a file whose name corresponds to the URL
+    // of the request. The second parameter (`"."`) tells where the files to look for are
+    // located.
+    // In order to avoid potential security threats, `match_assets` will never return any
+    // file outside of this directory even if the URL is for example `/../../foo.txt`.
+    let response = rouille::match_assets(&request, static_data_dir);
+
+    if response.is_success() {
+        return response;
+    }
+    return Response {
+        status_code: 404,
+        headers: vec![("Content-Type".into(), "text/plain; charset=utf-8".into())],
+        data: ResponseBody::from_string("File not found.\n"),
+        upgrade: None,
+    };
+}
+
 fn handle_list_scanners(
     conn: &Mutex<Connection>,
     static_data_dir: &str,
@@ -614,6 +633,9 @@ fn main() -> Result<()> {
 
             (GET) (/scanners/{scanner_name: Scanners}) => {
                 handle_list_scanners(&conn, &static_data_dir, scanner_name, &request)
+            },
+            (GET) (/collections/{vendor_name: String}/{file_name: String}) => {
+                handle_get_collection(&request, &static_data_dir)
             },
             (GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
                 let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
