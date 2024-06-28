@@ -545,6 +545,11 @@ fn main() -> Result<()> {
 
     thread::spawn(move || {
         let conn = get_connection(db_file.as_str());
+        // Reset scan tasks
+        let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = NULL, started_at = NULL WHERE (still_processing_at IS NOT NULL OR started_at IS NOT NULL) AND ended_at IS NULL",
+            named_params! {
+                ":updated_at": Utc::now().naive_utc().to_string(),
+            }).unwrap();
 
         loop {
             let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at IS NULL ORDER BY created_at ASC").unwrap();
