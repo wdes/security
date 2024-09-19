@@ -34,9 +34,9 @@ rouille = "3.6.2"
 hmac = "0.12.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
-rusqlite = { version = "0.31.0", features = ["bundled", "chrono"] }
+diesel = { version = "2.2.0", default-features = false, features = ["mysql", "chrono", "uuid"] }
 dns-ptr-resolver = "1.2.0"
 hickory-client = { version = "0.24.1", default-features = false }
 chrono = "0.4.38"
-uuid7 = "1.0.0"
+uuid = { version = "1.10.0", default-features = false, features = ["v7", "serde", "std"] }
 cidr = "0.2.2"

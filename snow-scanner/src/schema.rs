@@ -32,7 +32,4 @@ diesel::table! {
     }
 }
 
-diesel::allow_tables_to_appear_in_same_query!(
-    scan_tasks,
-    scanners,
-);
+diesel::allow_tables_to_appear_in_same_query!(scan_tasks, scanners,);
