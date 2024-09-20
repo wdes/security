@@ -289,6 +289,7 @@ async fn handle_get_collection(
     let mut path: PathBuf = PathBuf::new();
     let static_data_dir: String = static_data_dir.into_inner().to_string();
     path.push(static_data_dir);
+    path.push("collections");
     path.push(vendor_name.to_string());
     path.push(file_name.to_string());
     match NamedFile::open(path) {
@@ -310,6 +311,7 @@ async fn handle_list_scanners(
     if scanner_name.is_static() {
         let mut path: PathBuf = PathBuf::new();
         path.push(static_data_dir);
+        path.push("scanners");
         path.push(scanner_name.to_string());
 
         return match NamedFile::open(path) {
