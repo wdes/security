@@ -1,12 +1,8 @@
-use std::str::FromStr;
-
 use crate::Scanners;
 use chrono::NaiveDateTime;
-use diesel::deserialize::FromSqlRow;
 use diesel::dsl::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
-use uuid::Uuid;
 
 use crate::schema::scan_tasks::dsl::scan_tasks;
 use crate::schema::scanners::dsl::scanners;
@@ -88,7 +84,7 @@ impl NewScanner {
 #[diesel(table_name = crate::schema::scan_tasks)]
 #[diesel(check_for_backend(diesel::mysql::Mysql))]
 pub struct ScanTask {
-    pub task_group_id: uuid::Uuid,
+    pub task_group_id: String,
     pub cidr: String,
     pub created_by_username: String,
     pub created_at: NaiveDateTime,
