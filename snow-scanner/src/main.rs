@@ -19,9 +19,10 @@ use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
-use hickory_client::client::SyncClient;
-use hickory_client::rr::Name;
-use hickory_client::tcp::TcpClientConnection;
+use hickory_resolver::{Name, Resolver};
+use hickory_resolver::config::{NameServerConfigGroup, ResolverOpts, ResolverConfig};
+use std::time::Duration;
+use std::net::IpAddr;
 
 use diesel::serialize::IsNull;
 use diesel::{serialize, MysqlConnection};
@@ -439,17 +440,28 @@ fn get_connection(database_url: &str) -> DbPool {
     // Refer to the `r2d2` documentation for more methods to use
     // when building a connection pool
     Pool::builder()
-        .max_size(30)
+        .max_size(5)
         .test_on_check_out(true)
         .build(manager)
         .expect("Could not build connection pool")
 }
 
-fn get_dns_client() -> SyncClient<TcpClientConnection> {
-    let server = "1.1.1.1:53".parse().expect("To parse");
-    let dns_conn =
-        TcpClientConnection::with_timeout(server, std::time::Duration::new(5, 0)).unwrap();
-    SyncClient::new(dns_conn)
+fn get_dns_client() -> Resolver {
+
+    let server_ip = "1.1.1.1";
+
+    let server = NameServerConfigGroup::from_ips_clear(
+         &[IpAddr::from_str(server_ip).unwrap()],
+         53,// Port 53
+         true,
+    );
+
+    let config = ResolverConfig::from_parts(None, vec![], server);
+    let mut options = ResolverOpts::default();
+    options.timeout = Duration::from_secs(5);
+    options.attempts = 1; // One try
+
+    Resolver::new(config, options).unwrap()
 }
 
 fn plain_contents(data: String) -> HttpResponse {
@@ -493,13 +505,22 @@ async fn main() -> std::io::Result<()> {
         "mysql://localhost".to_string()
     };
 
+    let pool = get_connection(db_url.as_str());
+
+    // note that obtaining a connection from the pool is also potentially blocking
+    let conn = &mut pool.get().unwrap();
+    let names = Scanner::list_names(Scanners::Stretchoid, conn);
+    match names {
+        Ok(names) => println!("Found {} Stretchoid scanners", names.len()),
+        Err(err) => eprintln!("Unable to get names: {}", err),
+    };
+
     let server = HttpServer::new(move || {
         let static_data_dir: String = match env::var("STATIC_DATA_DIR") {
             Ok(val) => val,
             Err(_) => "../data/".to_string(),
         };
 
-        let pool = get_connection(db_url.as_str());
         App::new()
             .app_data(web::Data::new(pool.clone()))
             .app_data(actix_web::web::Data::new(static_data_dir))

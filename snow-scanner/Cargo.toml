@@ -40,8 +40,8 @@ hex = "0.4.3"
 # mariadb-dev on Alpine
 # "mysqlclient-src" "mysql_backend"
 diesel = { version = "2.2.0", default-features = false, features = ["mysql", "chrono", "uuid", "r2d2"] }
-dns-ptr-resolver = "1.2.0"
-hickory-client = { version = "0.24.1", default-features = false }
+dns-ptr-resolver = {git = "https://github.com/wdes/dns-ptr-resolver.git"}
+hickory-resolver = { version = "0.24.1", default-features = false, features = ["tokio-runtime", "dns-over-h3", "dns-over-https", "dns-over-quic"]}
 chrono = "0.4.38"
 uuid = { version = "1.10.0", default-features = false, features = ["v7", "serde", "std"] }
 cidr = "0.2.2"
