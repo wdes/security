@@ -19,10 +19,10 @@ use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
 
+use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::{Name, Resolver};
-use hickory_resolver::config::{NameServerConfigGroup, ResolverOpts, ResolverConfig};
-use std::time::Duration;
 use std::net::IpAddr;
+use std::time::Duration;
 
 use diesel::serialize::IsNull;
 use diesel::{serialize, MysqlConnection};
@@ -144,34 +144,58 @@ fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
 async fn handle_ip(pool: web::Data<DbPool>, ip: String) -> Result<Scanner, Option<ResolvedResult>> {
     let query_address = ip.parse().expect("To parse");
 
-    let client = get_dns_client();
-    let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
-        res
-    } else {
-        return Err(None);
-    };
+    let ptr_result: Result<ResolvedResult, ()> = std::thread::spawn(move || {
+        let client = get_dns_client();
+        let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
+            res
+        } else {
+            return Err(());
+        };
+        Ok(ptr_result)
+    })
+    .join()
+    .unwrap();
 
-    match detect_scanner(&ptr_result) {
+    if ptr_result.is_err() {
+        return Err(None);
+    }
+
+    let result = ptr_result.unwrap();
+
+    match detect_scanner(&result) {
         Ok(scanner_name) => {
             let ip_type = if ip.contains(':') { 6 } else { 4 };
-            let scanner = Scanner {
-                ip: ip,
-                ip_type: ip_type,
-                scanner_name: scanner_name.clone(),
-                ip_ptr: match ptr_result.result {
-                    Some(ptr) => Some(ptr.to_string()),
-                    None => None,
-                },
-                created_at: Utc::now().naive_utc(),
-                updated_at: None,
-                last_seen_at: None,
-                last_checked_at: None,
-            };
 
             // use web::block to offload blocking Diesel queries without blocking server thread
             web::block(move || {
                 // note that obtaining a connection from the pool is also potentially blocking
                 let conn = &mut pool.get().unwrap();
+                let scanner_row_result = Scanner::find(ip.clone(), ip_type, conn);
+                let scanner_row = match scanner_row_result {
+                    Ok(scanner_row) => scanner_row,
+                    Err(_) => return Err(None),
+                };
+
+                let scanner = if let Some(mut scanners) = scanner_row {
+                    scanners.last_seen_at = Some(Utc::now().naive_utc());
+                    scanners.last_checked_at = Some(Utc::now().naive_utc());
+                    scanners.updated_at = Some(Utc::now().naive_utc());
+                    scanners
+                } else {
+                    Scanner {
+                        ip: ip,
+                        ip_type: ip_type,
+                        scanner_name: scanner_name.clone(),
+                        ip_ptr: match result.result {
+                            Some(ptr) => Some(ptr.to_string()),
+                            None => None,
+                        },
+                        created_at: Utc::now().naive_utc(),
+                        updated_at: None,
+                        last_seen_at: None,
+                        last_checked_at: None,
+                    }
+                };
 
                 match scanner.save(conn) {
                     Ok(scanner) => Ok(scanner),
@@ -182,7 +206,7 @@ async fn handle_ip(pool: web::Data<DbPool>, ip: String) -> Result<Scanner, Optio
             .unwrap()
         }
 
-        Err(_) => Err(Some(ptr_result)),
+        Err(_) => Err(Some(result)),
     }
 }
 
@@ -258,14 +282,30 @@ pub struct ReportParams {
 async fn handle_report(pool: web::Data<DbPool>, params: web::Form<ReportParams>) -> HttpResponse {
     match handle_ip(pool, params.ip.clone()).await {
         Ok(scanner) => html_contents(match scanner.scanner_name {
-            Scanners::Binaryedge => format!(
-                "Reported an escaped ninja! <b>{}</a> known as {:?}.",
-                scanner.ip, scanner.ip_ptr
-            ),
-            Scanners::Stretchoid => format!(
-                "Reported a stretchoid agent! <b>{}</a> known as {:?}.",
-                scanner.ip, scanner.ip_ptr
-            ),
+            Scanners::Binaryedge => match scanner.last_checked_at {
+                Some(date) => format!(
+                    "Reported a binaryedge ninja! <b>{}</b> known as {} since {date}.",
+                    scanner.ip,
+                    scanner.ip_ptr.unwrap_or("".to_string())
+                ),
+                None => format!(
+                    "Reported a binaryedge ninja! <b>{}</b> known as {}.",
+                    scanner.ip,
+                    scanner.ip_ptr.unwrap_or("".to_string())
+                ),
+            },
+            Scanners::Stretchoid => match scanner.last_checked_at {
+                Some(date) => format!(
+                    "Reported a stretchoid agent! <b>{}</b> known as {} since {date}.",
+                    scanner.ip,
+                    scanner.ip_ptr.unwrap_or("".to_string())
+                ),
+                None => format!(
+                    "Reported a stretchoid agent! <b>{}</b> known as {}.",
+                    scanner.ip,
+                    scanner.ip_ptr.unwrap_or("".to_string())
+                ),
+            },
             _ => format!("Not supported"),
         }),
 
@@ -293,7 +333,9 @@ impl<'de> Deserialize<'de> for SecurePath {
         let k: String = s[0].to_string();
         // A-Z a-z 0-9
         // . - _
-        if k.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') {
+        if k.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
+        {
             return Ok(SecurePath { data: k });
         }
         Err(serde::de::Error::custom(format!(
@@ -447,13 +489,12 @@ fn get_connection(database_url: &str) -> DbPool {
 }
 
 fn get_dns_client() -> Resolver {
-
     let server_ip = "1.1.1.1";
 
     let server = NameServerConfigGroup::from_ips_clear(
-         &[IpAddr::from_str(server_ip).unwrap()],
-         53,// Port 53
-         true,
+        &[IpAddr::from_str(server_ip).unwrap()],
+        53, // Port 53
+        true,
     );
 
     let config = ResolverConfig::from_parts(None, vec![], server);

@@ -22,6 +22,22 @@ pub struct Scanner {
 }
 
 impl Scanner {
+    pub fn find(
+        ip_address: String,
+        ip_type: u8,
+        conn: &mut MysqlConnection,
+    ) -> Result<Option<Scanner>, DieselError> {
+        use crate::schema::scanners;
+
+        scanners
+            .select(Scanner::as_select())
+            .filter(scanners::ip.eq(ip_address))
+            .filter(scanners::ip_type.eq(ip_type))
+            .order((scanners::ip_type.desc(), scanners::created_at.desc()))
+            .first(conn)
+            .optional()
+    }
+
     pub fn list_names(
         scanner_name: Scanners,
         conn: &mut MysqlConnection,
