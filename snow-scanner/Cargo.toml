@@ -23,6 +23,8 @@ is-it-maintained-issue-resolution = { repository = "security" }
 is-it-maintained-open-issues = { repository = "security" }
 maintenance = { status = "passively-maintained" }
 
+# docker pull clux/muslrust:stable
+#  docker run -v $PWD:/volume --rm -t clux/muslrust:stable cargo build --release
 [[bin]]
 name = "snow-scanner"
 path = "src/main.rs"
@@ -35,6 +37,8 @@ actix-files = "0.6.6"
 hmac = "0.12.1"
 sha2 = "0.10.8"
 hex = "0.4.3"
+# mariadb-dev on Alpine
+# "mysqlclient-src" "mysql_backend"
 diesel = { version = "2.2.0", default-features = false, features = ["mysql", "chrono", "uuid", "r2d2"] }
 dns-ptr-resolver = "1.2.0"
 hickory-client = { version = "0.24.1", default-features = false }

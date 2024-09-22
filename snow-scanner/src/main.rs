@@ -279,8 +279,31 @@ async fn handle_report(pool: web::Data<DbPool>, params: web::Form<ReportParams>)
     }
 }
 
+struct SecurePath {
+    pub data: String,
+}
+
+impl<'de> Deserialize<'de> for SecurePath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = <Vec<String>>::deserialize(deserializer)?;
+        let k: String = s[0].to_string();
+        // A-Z a-z 0-9
+        // . - _
+        if k.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_') {
+            return Ok(SecurePath { data: k });
+        }
+        Err(serde::de::Error::custom(format!(
+            "Invalid value: {}",
+            k.to_string()
+        )))
+    }
+}
+
 async fn handle_get_collection(
-    path: web::Path<(String, String)>,
+    path: web::Path<(SecurePath, SecurePath)>,
     req: HttpRequest,
     static_data_dir: actix_web::web::Data<String>,
 ) -> actix_web::Result<HttpResponse> {
@@ -290,8 +313,8 @@ async fn handle_get_collection(
     let static_data_dir: String = static_data_dir.into_inner().to_string();
     path.push(static_data_dir);
     path.push("collections");
-    path.push(vendor_name.to_string());
-    path.push(file_name.to_string());
+    path.push(vendor_name.data);
+    path.push(file_name.data);
     match NamedFile::open(path) {
         Ok(file) => Ok(file.into_response(&req)),
         Err(err) => Ok(HttpResponse::NotFound()
