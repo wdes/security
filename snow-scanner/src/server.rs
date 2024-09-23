@@ -76,14 +76,7 @@ impl ws2::Handler for Server {
 
         info!("on message: {msg}, {ws}");
 
-        let worker_message: WorkerMessages = match serde_json::from_str(msg.as_str()) {
-            Ok(worker_message) => worker_message,
-            Err(err) => {
-                error!("Unable to understand: {msg}, {ws}: {err}");
-                // Unable to understand, close the connection
-                return ws.close();
-            }
-        };
+        let worker_message: WorkerMessages = msg.clone().into();
 
         match worker_message {
             WorkerMessages::AuthenticateRequest { login } => {
@@ -94,20 +87,23 @@ impl ws2::Handler for Server {
                     return Ok(n?);*/
                     return Ok(());
                 } else {
-                    error!("Already authenticated: {msg}, {ws}");
+                    error!("Already authenticated: {ws}");
                     return Ok(());
                 }
             }
-            WorkerMessages::FooRequest { username } => {
-                let echo = format!("echo: {msg}");
+            WorkerMessages::GetWorkRequest {} => {
+                let echo = format!("wr");
                 let n = ws.send(echo);
                 Ok(n?)
             }
-            WorkerMessages::String => {
+            WorkerMessages::Invalid => {
                 error!("Unable to understand: {msg}, {ws}");
                 // Unable to understand, close the connection
                 return ws.close();
-            }
+            } /*msg => {
+                  error!("No implemented: {:#?}", msg);
+                  Ok(())
+              }*/
         }
     }
 }

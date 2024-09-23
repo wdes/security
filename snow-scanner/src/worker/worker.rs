@@ -81,14 +81,21 @@ fn main() -> () {
                     Ok(_) => {}
                     Err(err) => error!("Processing error: {err}"),
                 }
-                if ! worker.is_authenticated() {
+                if !worker.is_authenticated() {
                     let msg: WorkerMessages = WorkerMessages::AuthenticateRequest {
                         login: "williamdes".to_string(),
                     };
-                    let msg: String = serde_json::to_string(&msg).expect("To serialize").into();
-                    match ws_client.send(msg) {
+                    let msg_string: String = msg.to_string();
+                    match ws_client.send(msg_string) {
                         Ok(_) => {
-                            worker.authenticated = true;
+                            match msg {
+                                WorkerMessages::AuthenticateRequest { login } => {
+                                    worker.authenticated = true; // Anyway, it will kick us if this is not success
+                                    info!("Logged in as: {login}")
+                                }
+                                WorkerMessages::GetWorkRequest {} => {}
+                                msg => error!("No implemented: {:#?}", msg),
+                            }
                         }
                         Err(err) => error!("Unable to connect to {url}: {err}"),
                     }
