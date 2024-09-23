@@ -1,8 +1,9 @@
+use cidr::IpCidr;
 use log2::*;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 use ws2::{Pod, WebSocket};
 
-use crate::worker::modules::WorkerMessages;
+use crate::worker::modules::{Network, WorkerMessages};
 
 pub struct Server {
     pub clients: HashMap<u32, Worker>,
@@ -76,15 +77,13 @@ impl ws2::Handler for Server {
 
         info!("on message: {msg}, {ws}");
 
-        let worker_message: WorkerMessages = msg.clone().into();
+        let mut worker_reply: Option<WorkerMessages> = None;
+        let worker_request: WorkerMessages = msg.clone().into();
 
-        match worker_message {
+        let result = match worker_request {
             WorkerMessages::AuthenticateRequest { login } => {
                 if !worker.is_authenticated() {
                     worker.authenticate(login);
-                    /*let echo = format!("echo: {msg}");
-                    let n = ws.send(echo);
-                    return Ok(n?);*/
                     return Ok(());
                 } else {
                     error!("Already authenticated: {ws}");
@@ -92,11 +91,12 @@ impl ws2::Handler for Server {
                 }
             }
             WorkerMessages::GetWorkRequest {} => {
-                let echo = format!("wr");
-                let n = ws.send(echo);
-                Ok(n?)
+                worker_reply = Some(WorkerMessages::DoWorkRequest {
+                    neworks: vec![Network(IpCidr::from_str("127.0.0.0/31")?)],
+                });
+                Ok(())
             }
-            WorkerMessages::Invalid => {
+            WorkerMessages::DoWorkRequest { .. } | WorkerMessages::Invalid { .. } => {
                 error!("Unable to understand: {msg}, {ws}");
                 // Unable to understand, close the connection
                 return ws.close();
@@ -104,6 +104,19 @@ impl ws2::Handler for Server {
                   error!("No implemented: {:#?}", msg);
                   Ok(())
               }*/
+        };
+
+        // it has a request to send
+        if let Some(worker_reply) = worker_reply {
+            let msg_string: String = worker_reply.to_string();
+            match ws.send(msg_string) {
+                Ok(_) => match worker_reply {
+                    WorkerMessages::DoWorkRequest { .. } => {}
+                    msg => error!("No implemented: {:#?}", msg),
+                },
+                Err(err) => error!("Error sending reply to {ws}: {err}"),
+            }
         }
+        result
     }
 }

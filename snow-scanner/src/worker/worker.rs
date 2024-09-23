@@ -1,5 +1,6 @@
-use std::env;
+use std::{env, net::IpAddr};
 
+use chrono::{Duration, NaiveDateTime, Utc};
 use log2::*;
 use ws2::{Pod, WebSocket};
 
@@ -8,8 +9,15 @@ pub mod modules;
 use crate::modules::WorkerMessages;
 
 #[derive(Debug, Clone)]
+pub struct IpToResolve {
+    pub address: IpAddr,
+}
+
+#[derive(Debug, Clone)]
 pub struct Worker {
     pub authenticated: bool,
+    pub tasks: Vec<IpToResolve>,
+    pub last_request_for_work: Option<NaiveDateTime>,
 }
 
 impl Worker {
@@ -17,6 +25,8 @@ impl Worker {
         info!("New worker");
         Worker {
             authenticated: false,
+            tasks: vec![],
+            last_request_for_work: None,
         }
     }
 
@@ -48,11 +58,20 @@ impl ws2::Handler for Worker {
     }
 
     fn on_message(&mut self, ws: &WebSocket, msg: String) -> Pod {
-        /*info!("on message: {msg}, {ws}");
-        let echo = format!("echo: {msg}");
-        let n = ws.send(echo);
-        Ok(n?)*/
-        Ok(())
+        let worker_request: WorkerMessages = msg.clone().into();
+
+        match worker_request {
+            WorkerMessages::DoWorkRequest { neworks } => {
+                info!("Should work on: {:?}", neworks);
+                Ok(())
+            }
+            WorkerMessages::AuthenticateRequest { .. }
+            | WorkerMessages::GetWorkRequest {}
+            | WorkerMessages::Invalid { .. } => {
+                error!("Unable to understand message: {msg}, {:?}", worker_request);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -81,19 +100,35 @@ fn main() -> () {
                     Ok(_) => {}
                     Err(err) => error!("Processing error: {err}"),
                 }
+                let mut request: Option<WorkerMessages> = None;
                 if !worker.is_authenticated() {
-                    let msg: WorkerMessages = WorkerMessages::AuthenticateRequest {
+                    request = Some(WorkerMessages::AuthenticateRequest {
                         login: "williamdes".to_string(),
-                    };
-                    let msg_string: String = msg.to_string();
+                    });
+                } else {
+                    if worker.last_request_for_work.is_none()
+                        || (worker.last_request_for_work.is_some()
+                            && Utc::now().naive_utc()
+                                > (worker.last_request_for_work.unwrap() + Duration::minutes(10)))
+                    {
+                        request = Some(WorkerMessages::GetWorkRequest {});
+                    }
+                }
+
+                // it has a request to send
+                if let Some(request) = request {
+                    let msg_string: String = request.to_string();
                     match ws_client.send(msg_string) {
                         Ok(_) => {
-                            match msg {
+                            match request {
                                 WorkerMessages::AuthenticateRequest { login } => {
                                     worker.authenticated = true; // Anyway, it will kick us if this is not success
                                     info!("Logged in as: {login}")
                                 }
-                                WorkerMessages::GetWorkRequest {} => {}
+                                WorkerMessages::GetWorkRequest {} => {
+                                    worker.last_request_for_work = Some(Utc::now().naive_utc());
+                                    info!("Asked for work: {:?}", worker.last_request_for_work)
+                                }
                                 msg => error!("No implemented: {:#?}", msg),
                             }
                         }
