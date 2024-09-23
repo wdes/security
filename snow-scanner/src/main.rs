@@ -2,6 +2,7 @@ use actix_files::NamedFile;
 use actix_web::error::ErrorInternalServerError;
 use actix_web::http::header::ContentType;
 use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
+use log2::*;
 
 use chrono::{NaiveDateTime, Utc};
 use diesel::deserialize::{self, FromSqlRow};
@@ -11,6 +12,7 @@ use diesel::sql_types::Text;
 use diesel::r2d2::ConnectionManager;
 use diesel::r2d2::Pool;
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -30,8 +32,11 @@ use dns_ptr_resolver::{get_ptr, ResolvedResult};
 
 pub mod models;
 pub mod schema;
+pub mod server;
+pub mod worker;
 
 use crate::models::*;
+use crate::server::Server;
 
 /// Short-hand for the database pool type to use throughout the app.
 type DbPool = Pool<ConnectionManager<MysqlConnection>>;
@@ -262,8 +267,8 @@ async fn handle_scan(pool: web::Data<DbPool>, params: web::Form<ScanParams>) -> 
                 ended_at: None,
             };
             match scan_task.save(conn) {
-                Ok(_) => println!("Added {}", ip.to_string()),
-                Err(err) => eprintln!("Not added: {:?}", err),
+                Ok(_) => error!("Added {}", ip.to_string()),
+                Err(err) => error!("Not added: {:?}", err),
             }
         }
     })
@@ -533,16 +538,30 @@ async fn pong() -> HttpResponse {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let _log2 = log2::stdout()
+        .module(false)
+        .level(match env::var("RUST_LOG") {
+            Ok(level) => level,
+            Err(_) => "debug".to_string(),
+        })
+        .start();
+
     let server_address: String = if let Ok(env) = env::var("SERVER_ADDRESS") {
         env
     } else {
-        "localhost:8000".to_string()
+        "127.0.0.1:8000".to_string()
+    };
+
+    let worker_server_address: String = if let Ok(env) = env::var("WORKER_SERVER_ADDRESS") {
+        env
+    } else {
+        "127.0.0.1:8800".to_string()
     };
 
     let db_url: String = if let Ok(env) = env::var("DB_URL") {
         env
     } else {
-        eprintln!("Missing ENV: DB_URL");
+        error!("Missing ENV: DB_URL");
         "mysql://localhost".to_string()
     };
 
@@ -552,8 +571,8 @@ async fn main() -> std::io::Result<()> {
     let conn = &mut pool.get().unwrap();
     let names = Scanner::list_names(Scanners::Stretchoid, conn);
     match names {
-        Ok(names) => println!("Found {} Stretchoid scanners", names.len()),
-        Err(err) => eprintln!("Unable to get names: {}", err),
+        Ok(names) => info!("Found {} Stretchoid scanners", names.len()),
+        Err(err) => error!("Unable to get names: {}", err),
     };
 
     let server = HttpServer::new(move || {
@@ -582,108 +601,31 @@ async fn main() -> std::io::Result<()> {
     .bind(&server_address);
     match server {
         Ok(server) => {
-            println!("Now listening on {}", server_address);
+            match ws2::listen(worker_server_address.as_str()) {
+                Ok(mut ws_server) => {
+                    std::thread::spawn(move || {
+                        let mut ws_server_handles = Server {
+                            clients: HashMap::new(),
+                        };
+                        info!("Worker server is listening on: {worker_server_address}");
+                        loop {
+                            match ws_server.process(&mut ws_server_handles, 0.5) {
+                                Ok(_) => {}
+                                Err(err) => error!("Processing error: {err}"),
+                            }
+                            ws_server_handles.cleanup(&ws_server);
+                        }
+                    });
+                }
+                Err(err) => error!("Unable to listen on {worker_server_address}: {err}"),
+            };
+
+            info!("Now listening on {}", server_address);
             server.run().await
         }
         Err(err) => {
-            eprintln!("Could not bind the server to {}", server_address);
+            error!("Could not bind the server to {}", server_address);
             Err(err)
         }
     }
 }
-/*
-(POST) (/register) => {
-    let data = try_or_400!(post_input!(request, {
-        email: String,
-    }));
-
-    // We just print what was received on stdout. Of course in a real application
-    // you probably want to process the data, eg. store it in a database.
-    println!("Received data: {:?}", data);
-
-
-    let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
-        .expect("HMAC can take key of any size");
-    mac.update(data.email.as_bytes());
-
-    // `result` has type `CtOutput` which is a thin wrapper around array of
-    // bytes for providing constant time equality check
-    let result = mac.finalize();
-    // To get underlying array use `into_bytes`, but be careful, since
-    // incorrect use of the code value may permit timing attacks which defeats
-    // the security provided by the `CtOutput`
-    let code_bytes = result.into_bytes();
-    rouille::Response::html(format!("Success! <b>{}</a>.", hex::encode(code_bytes)))
-},
-
-(GET) (/{api_key: String}/scanners/{scanner_name: String}) => {
-    let mut mac = HmacSha256::new_from_slice(b"my secret and secure key")
-        .expect("HMAC can take key of any size");
-
-    mac.update(b"williamdes@wdes.fr");
-
-    println!("{}", api_key);
-    let hex_key = hex::decode(&api_key).unwrap();
-    // `verify_slice` will return `Ok(())` if code is correct, `Err(MacError)` otherwise
-    mac.verify_slice(&hex_key).unwrap();
-
-    rouille::Response::empty_404()
-},
-
-    thread::spawn(move || {
-        let conn = &mut get_connection(db_url.as_str());
-        // Reset scan tasks
-        let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = NULL, started_at = NULL WHERE (still_processing_at IS NOT NULL OR started_at IS NOT NULL) AND ended_at IS NULL",
-            named_params! {
-                ":updated_at": Utc::now().naive_utc().to_string(),
-            }).unwrap();
-
-        loop {
-            let mut stmt = conn.prepare("SELECT task_group_id, cidr FROM scan_tasks WHERE started_at IS NULL ORDER BY created_at ASC").unwrap();
-            let mut rows = stmt.query(named_params! {}).unwrap();
-            println!("Waiting for jobs");
-            while let Some(row) = rows.next().unwrap() {
-                let task_group_id: String = row.get(0).unwrap();
-                let cidr_str: String = row.get(1).unwrap();
-                let cidr: IpCidr = cidr_str.parse().expect("Should parse CIDR");
-                println!("Picking up: {} -> {}", task_group_id, cidr);
-                println!("Range, from {} to {}", cidr.first(), cidr.last());
-                let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                    named_params! {
-                        ":updated_at": Utc::now().naive_utc().to_string(),
-                        ":started_at": Utc::now().naive_utc().to_string(),
-                        ":cidr": cidr_str,
-                        ":task_group_id": task_group_id,
-                    }).unwrap();
-                let addresses = cidr.iter().addresses();
-                let count = addresses.count();
-                let mut current = 0;
-                for addr in addresses {
-                    match handle_ip(conn, addr.to_string()) {
-                        Ok(scanner) => println!("Processed {}", scanner.ip),
-                        Err(_) => println!("Processed {}", addr),
-                    }
-                    current += 1;
-                    if (current / count) % 10 == 0 {
-                        let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = :still_processing_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                            named_params! {
-                                ":updated_at": Utc::now().naive_utc().to_string(),
-                                ":still_processing_at": Utc::now().naive_utc().to_string(),
-                                ":cidr": cidr_str,
-                                ":task_group_id": task_group_id,
-                            }).unwrap();
-                    }
-                }
-                let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, ended_at = :ended_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
-                    named_params! {
-                        ":updated_at": Utc::now().naive_utc().to_string(),
-                        ":ended_at": Utc::now().naive_utc().to_string(),
-                        ":cidr": cidr_str,
-                        ":task_group_id": task_group_id,
-                    }).unwrap();
-            }
-
-            let two_hundred_millis = Duration::from_millis(500);
-            thread::sleep(two_hundred_millis);
-        }
-    });*/
