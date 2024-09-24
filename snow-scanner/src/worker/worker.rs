@@ -1,11 +1,15 @@
 use std::{env, net::IpAddr};
 
 use chrono::{Duration, NaiveDateTime, Utc};
+use detection::detect_scanner;
+use dns_ptr_resolver::{get_ptr, ResolvedResult};
 use log2::*;
-use ws2::{Pod, WebSocket};
+use ws2::{Client, Pod, WebSocket};
 
+pub mod detection;
 pub mod modules;
 
+use crate::detection::get_dns_client;
 use crate::modules::WorkerMessages;
 
 #[derive(Debug, Clone)]
@@ -44,6 +48,100 @@ impl Worker {
         self.authenticated = true;
         self
     }
+
+    pub fn tick(&mut self, ws_client: &Client) -> &Worker {
+        let mut request: Option<WorkerMessages> = None;
+        if !self.is_authenticated() {
+            request = Some(WorkerMessages::AuthenticateRequest {
+                login: "williamdes".to_string(),
+            });
+        } else {
+            if self.last_request_for_work.is_none()
+                || (self.last_request_for_work.is_some()
+                    && Utc::now().naive_utc()
+                        > (self.last_request_for_work.unwrap() + Duration::minutes(10)))
+            {
+                request = Some(WorkerMessages::GetWorkRequest {});
+            }
+        }
+
+        // it has a request to send
+        if let Some(request) = request {
+            self.send_request(ws_client, request);
+        }
+        self
+    }
+
+    pub fn send_request(&mut self, ws_client: &Client, request: WorkerMessages) -> &Worker {
+        let msg_string: String = request.to_string();
+        match ws_client.send(msg_string) {
+            Ok(_) => {
+                match request {
+                    WorkerMessages::AuthenticateRequest { login } => {
+                        self.authenticated = true; // Anyway, it will kick us if this is not success
+                        info!("Logged in as: {login}")
+                    }
+                    WorkerMessages::GetWorkRequest {} => {
+                        self.last_request_for_work = Some(Utc::now().naive_utc());
+                        info!("Asked for work: {:?}", self.last_request_for_work)
+                    }
+                    msg => error!("No implemented: {:#?}", msg),
+                }
+            }
+            Err(err) => error!("Unable to send: {err}"),
+        }
+        self
+    }
+
+    pub fn receive_request(&mut self, ws: &WebSocket, server_request: WorkerMessages) -> &Worker {
+        match server_request {
+            WorkerMessages::DoWorkRequest { neworks } => {
+                info!("Should work on: {:?}", neworks);
+                for cidr in neworks {
+                    let cidr = cidr.0;
+                    info!("Picking up: {cidr}");
+                    info!("Range, from {} to {}", cidr.first(), cidr.last());
+                    let addresses = cidr.iter().addresses();
+                    let count = addresses.count();
+                    let mut current = 0;
+                    for addr in addresses {
+                        let client = get_dns_client();
+                        match get_ptr(addr, client) {
+                            Ok(result) => match detect_scanner(&result) {
+                                Ok(Some(scanner_name)) => {
+                                    info!("Detected {:?} for {addr}", scanner_name);
+                                    let request = WorkerMessages::ScannerFoundResponse {
+                                        name: result.result.unwrap().to_string(),
+                                        address: addr,
+                                    };
+                                    let msg_string: String = request.to_string();
+                                    match ws.send(msg_string) {
+                                        Ok(_) => {}
+                                        Err(err) => error!("Unable to send scanner result: {err}"),
+                                    }
+                                }
+                                Ok(None) => {}
+
+                                Err(err) => error!("Error detecting for {addr}: {:?}", err),
+                            },
+                            Err(err) => {
+                                //debug!("Error processing {addr}: {err}")
+                            }
+                        };
+
+                        current += 1;
+                    }
+                }
+            }
+            WorkerMessages::AuthenticateRequest { .. }
+            | WorkerMessages::ScannerFoundResponse { .. }
+            | WorkerMessages::GetWorkRequest {}
+            | WorkerMessages::Invalid { .. } => {
+                error!("Unable to understand message: {:?}", server_request);
+            }
+        }
+        self
+    }
 }
 
 impl ws2::Handler for Worker {
@@ -58,20 +156,9 @@ impl ws2::Handler for Worker {
     }
 
     fn on_message(&mut self, ws: &WebSocket, msg: String) -> Pod {
-        let worker_request: WorkerMessages = msg.clone().into();
-
-        match worker_request {
-            WorkerMessages::DoWorkRequest { neworks } => {
-                info!("Should work on: {:?}", neworks);
-                Ok(())
-            }
-            WorkerMessages::AuthenticateRequest { .. }
-            | WorkerMessages::GetWorkRequest {}
-            | WorkerMessages::Invalid { .. } => {
-                error!("Unable to understand message: {msg}, {:?}", worker_request);
-                Ok(())
-            }
-        }
+        let server_request: WorkerMessages = msg.clone().into();
+        self.receive_request(ws, server_request);
+        Ok(())
     }
 }
 
@@ -97,43 +184,10 @@ fn main() -> () {
 
             loop {
                 match ws_client.process(&mut worker, 0.5) {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        worker.tick(&ws_client);
+                    }
                     Err(err) => error!("Processing error: {err}"),
-                }
-                let mut request: Option<WorkerMessages> = None;
-                if !worker.is_authenticated() {
-                    request = Some(WorkerMessages::AuthenticateRequest {
-                        login: "williamdes".to_string(),
-                    });
-                } else {
-                    if worker.last_request_for_work.is_none()
-                        || (worker.last_request_for_work.is_some()
-                            && Utc::now().naive_utc()
-                                > (worker.last_request_for_work.unwrap() + Duration::minutes(10)))
-                    {
-                        request = Some(WorkerMessages::GetWorkRequest {});
-                    }
-                }
-
-                // it has a request to send
-                if let Some(request) = request {
-                    let msg_string: String = request.to_string();
-                    match ws_client.send(msg_string) {
-                        Ok(_) => {
-                            match request {
-                                WorkerMessages::AuthenticateRequest { login } => {
-                                    worker.authenticated = true; // Anyway, it will kick us if this is not success
-                                    info!("Logged in as: {login}")
-                                }
-                                WorkerMessages::GetWorkRequest {} => {
-                                    worker.last_request_for_work = Some(Utc::now().naive_utc());
-                                    info!("Asked for work: {:?}", worker.last_request_for_work)
-                                }
-                                msg => error!("No implemented: {:#?}", msg),
-                            }
-                        }
-                        Err(err) => error!("Unable to connect to {url}: {err}"),
-                    }
                 }
             }
         }
@@ -154,11 +208,7 @@ thread::spawn(move || {
         let mut rows = stmt.query(named_params! {}).unwrap();
         println!("Waiting for jobs");
         while let Some(row) = rows.next().unwrap() {
-            let task_group_id: String = row.get(0).unwrap();
-            let cidr_str: String = row.get(1).unwrap();
-            let cidr: IpCidr = cidr_str.parse().expect("Should parse CIDR");
-            println!("Picking up: {} -> {}", task_group_id, cidr);
-            println!("Range, from {} to {}", cidr.first(), cidr.last());
+
             let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, started_at = :started_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
                 named_params! {
                     ":updated_at": Utc::now().naive_utc().to_string(),
@@ -166,15 +216,7 @@ thread::spawn(move || {
                     ":cidr": cidr_str,
                     ":task_group_id": task_group_id,
                 }).unwrap();
-            let addresses = cidr.iter().addresses();
-            let count = addresses.count();
-            let mut current = 0;
-            for addr in addresses {
-                match handle_ip(conn, addr.to_string()) {
-                    Ok(scanner) => println!("Processed {}", scanner.ip),
-                    Err(_) => println!("Processed {}", addr),
-                }
-                current += 1;
+
                 if (current / count) % 10 == 0 {
                     let _ = conn.execute("UPDATE scan_tasks SET updated_at = :updated_at, still_processing_at = :still_processing_at WHERE cidr = :cidr AND task_group_id = :task_group_id",
                         named_params! {
@@ -193,8 +235,5 @@ thread::spawn(move || {
                     ":task_group_id": task_group_id,
                 }).unwrap();
         }
-
-        let two_hundred_millis = Duration::from_millis(500);
-        thread::sleep(two_hundred_millis);
     }
 });*/

@@ -1,18 +1,59 @@
 use cidr::IpCidr;
+use diesel::MysqlConnection;
+use hickory_resolver::Name;
 use log2::*;
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, net::IpAddr, str::FromStr};
 use ws2::{Pod, WebSocket};
 
-use crate::worker::modules::{Network, WorkerMessages};
+use crate::{
+    worker::{
+        detection::detect_scanner_from_name,
+        modules::{Network, WorkerMessages},
+    },
+    DbPool, Scanner,
+};
 
 pub struct Server {
     pub clients: HashMap<u32, Worker>,
+    pub new_scanners: HashMap<String, IpAddr>,
 }
 
 impl Server {
     pub fn cleanup(&self, _: &ws2::Server) -> &Server {
         // TODO: implement check not logged in
         &self
+    }
+
+    pub fn commit(&mut self, conn: &mut MysqlConnection) -> &Server {
+        for (name, query_address) in self.new_scanners.clone() {
+            let scanner_name = Name::from_str(name.as_str()).unwrap();
+
+            match detect_scanner_from_name(&scanner_name) {
+                Ok(Some(scanner_type)) => {
+                    match Scanner::find_or_new(
+                        query_address,
+                        scanner_type,
+                        Some(scanner_name),
+                        conn,
+                    ) {
+                        Ok(scanner) => {
+                            // Got saved
+                            self.new_scanners.remove(&name);
+                            info!(
+                                "Saved {scanner_type}: {name} for {query_address}: {:?}",
+                                scanner.ip_ptr
+                            );
+                        }
+                        Err(err) => {
+                            error!("Unable to find or new {:?}", err);
+                        }
+                    };
+                }
+                Ok(None) => {}
+                Err(_) => {}
+            }
+        }
+        self
     }
 }
 
@@ -90,9 +131,14 @@ impl ws2::Handler for Server {
                     return Ok(());
                 }
             }
+            WorkerMessages::ScannerFoundResponse { name, address } => {
+                info!("Detected {name} for {address}");
+                self.new_scanners.insert(name, address);
+                Ok(())
+            }
             WorkerMessages::GetWorkRequest {} => {
                 worker_reply = Some(WorkerMessages::DoWorkRequest {
-                    neworks: vec![Network(IpCidr::from_str("127.0.0.0/31")?)],
+                    neworks: vec![Network(IpCidr::from_str("52.189.78.0/24")?)],
                 });
                 Ok(())
             }

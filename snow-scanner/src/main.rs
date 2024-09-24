@@ -5,26 +5,21 @@ use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer};
 use log2::*;
 
 use chrono::{NaiveDateTime, Utc};
-use diesel::deserialize::{self, FromSqlRow};
+use diesel::deserialize::{self};
 use diesel::mysql::{Mysql, MysqlValue};
 use diesel::sql_types::Text;
 
 use diesel::r2d2::ConnectionManager;
 use diesel::r2d2::Pool;
+use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::{env, fmt};
 use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
-
-use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
-use hickory_resolver::{Name, Resolver};
-use std::net::IpAddr;
-use std::time::Duration;
 
 use diesel::serialize::IsNull;
 use diesel::{serialize, MysqlConnection};
@@ -40,17 +35,6 @@ use crate::server::Server;
 
 /// Short-hand for the database pool type to use throughout the app.
 type DbPool = Pool<ConnectionManager<MysqlConnection>>;
-
-// Create alias for HMAC-SHA256
-// type HmacSha256 = Hmac<Sha256>;
-
-#[derive(Debug, Clone, Copy, FromSqlRow)]
-pub enum Scanners {
-    Stretchoid,
-    Binaryedge,
-    Censys,
-    InternetMeasurement,
-}
 
 trait IsStatic {
     fn is_static(self: &Self) -> bool;
@@ -128,24 +112,6 @@ impl deserialize::FromSql<Text, Mysql> for Scanners {
     }
 }
 
-fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Scanners, ()> {
-    match ptr_result.result {
-        Some(ref x)
-            if x.trim_to(2)
-                .eq_case(&Name::from_str("binaryedge.ninja.").expect("Should parse")) =>
-        {
-            Ok(Scanners::Binaryedge)
-        }
-        Some(ref x)
-            if x.trim_to(2)
-                .eq_case(&Name::from_str("stretchoid.com.").expect("Should parse")) =>
-        {
-            Ok(Scanners::Stretchoid)
-        }
-        _ => Err(()),
-    }
-}
-
 async fn handle_ip(pool: web::Data<DbPool>, ip: String) -> Result<Scanner, Option<ResolvedResult>> {
     let query_address = ip.parse().expect("To parse");
 
@@ -168,41 +134,12 @@ async fn handle_ip(pool: web::Data<DbPool>, ip: String) -> Result<Scanner, Optio
     let result = ptr_result.unwrap();
 
     match detect_scanner(&result) {
-        Ok(scanner_name) => {
-            let ip_type = if ip.contains(':') { 6 } else { 4 };
-
+        Ok(Some(scanner_type)) => {
             // use web::block to offload blocking Diesel queries without blocking server thread
             web::block(move || {
                 // note that obtaining a connection from the pool is also potentially blocking
                 let conn = &mut pool.get().unwrap();
-                let scanner_row_result = Scanner::find(ip.clone(), ip_type, conn);
-                let scanner_row = match scanner_row_result {
-                    Ok(scanner_row) => scanner_row,
-                    Err(_) => return Err(None),
-                };
-
-                let scanner = if let Some(mut scanners) = scanner_row {
-                    scanners.last_seen_at = Some(Utc::now().naive_utc());
-                    scanners.last_checked_at = Some(Utc::now().naive_utc());
-                    scanners.updated_at = Some(Utc::now().naive_utc());
-                    scanners
-                } else {
-                    Scanner {
-                        ip: ip,
-                        ip_type: ip_type,
-                        scanner_name: scanner_name.clone(),
-                        ip_ptr: match result.result {
-                            Some(ptr) => Some(ptr.to_string()),
-                            None => None,
-                        },
-                        created_at: Utc::now().naive_utc(),
-                        updated_at: None,
-                        last_seen_at: None,
-                        last_checked_at: None,
-                    }
-                };
-
-                match scanner.save(conn) {
+                match Scanner::find_or_new(query_address, scanner_type, result.result, conn) {
                     Ok(scanner) => Ok(scanner),
                     Err(_) => Err(None),
                 }
@@ -210,6 +147,7 @@ async fn handle_ip(pool: web::Data<DbPool>, ip: String) -> Result<Scanner, Optio
             .await
             .unwrap()
         }
+        Ok(None) => Err(None),
 
         Err(_) => Err(Some(result)),
     }
@@ -493,23 +431,6 @@ fn get_connection(database_url: &str) -> DbPool {
         .expect("Could not build connection pool")
 }
 
-fn get_dns_client() -> Resolver {
-    let server_ip = "1.1.1.1";
-
-    let server = NameServerConfigGroup::from_ips_clear(
-        &[IpAddr::from_str(server_ip).unwrap()],
-        53, // Port 53
-        true,
-    );
-
-    let config = ResolverConfig::from_parts(None, vec![], server);
-    let mut options = ResolverOpts::default();
-    options.timeout = Duration::from_secs(5);
-    options.attempts = 1; // One try
-
-    Resolver::new(config, options).unwrap()
-}
-
 fn plain_contents(data: String) -> HttpResponse {
     HttpResponse::Ok()
         .content_type(ContentType::plaintext())
@@ -604,8 +525,12 @@ async fn main() -> std::io::Result<()> {
             match ws2::listen(worker_server_address.as_str()) {
                 Ok(mut ws_server) => {
                     std::thread::spawn(move || {
+                        let pool = get_connection(db_url.as_str());
+                        // note that obtaining a connection from the pool is also potentially blocking
+                        let conn = &mut pool.get().unwrap();
                         let mut ws_server_handles = Server {
                             clients: HashMap::new(),
+                            new_scanners: HashMap::new(),
                         };
                         info!("Worker server is listening on: {worker_server_address}");
                         loop {
@@ -614,6 +539,7 @@ async fn main() -> std::io::Result<()> {
                                 Err(err) => error!("Processing error: {err}"),
                             }
                             ws_server_handles.cleanup(&ws_server);
+                            ws_server_handles.commit(conn);
                         }
                     });
                 }

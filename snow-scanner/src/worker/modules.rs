@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{net::IpAddr, str::FromStr};
 
 use cidr::IpCidr;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -15,6 +15,8 @@ pub enum WorkerMessages {
     GetWorkRequest {},
     #[serde(rename = "do_work")]
     DoWorkRequest { neworks: Vec<Network> },
+    #[serde(rename = "scanner_found")]
+    ScannerFoundResponse { name: String, address: IpAddr },
     #[serde(rename = "")]
     Invalid { err: String },
 }

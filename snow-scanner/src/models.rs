@@ -1,8 +1,11 @@
+use std::net::IpAddr;
+
 use crate::Scanners;
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Utc};
 use diesel::dsl::insert_into;
 use diesel::prelude::*;
 use diesel::result::Error as DieselError;
+use hickory_resolver::Name;
 
 use crate::schema::scan_tasks::dsl::scan_tasks;
 use crate::schema::scanners::dsl::scanners;
@@ -22,6 +25,45 @@ pub struct Scanner {
 }
 
 impl Scanner {
+    pub fn find_or_new(
+        query_address: IpAddr,
+        scanner_name: Scanners,
+        ptr: Option<Name>,
+        conn: &mut MysqlConnection,
+    ) -> Result<Scanner, ()> {
+        let ip_type = if query_address.is_ipv6() { 6 } else { 4 };
+        let scanner_row_result = Scanner::find(query_address.to_string(), ip_type, conn);
+        let scanner_row = match scanner_row_result {
+            Ok(scanner_row) => scanner_row,
+            Err(_) => return Err(()),
+        };
+
+        let scanner = if let Some(mut scanner) = scanner_row {
+            scanner.last_seen_at = Some(Utc::now().naive_utc());
+            scanner.last_checked_at = Some(Utc::now().naive_utc());
+            scanner.updated_at = Some(Utc::now().naive_utc());
+            scanner
+        } else {
+            Scanner {
+                ip: query_address.to_string(),
+                ip_type: ip_type,
+                scanner_name: scanner_name.clone(),
+                ip_ptr: match ptr {
+                    Some(ptr) => Some(ptr.to_string()),
+                    None => None,
+                },
+                created_at: Utc::now().naive_utc(),
+                updated_at: None,
+                last_seen_at: None,
+                last_checked_at: None,
+            }
+        };
+        match scanner.save(conn) {
+            Ok(scanner) => Ok(scanner),
+            Err(_) => Err(()),
+        }
+    }
+
     pub fn find(
         ip_address: String,
         ip_type: u8,
