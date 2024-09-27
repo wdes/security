@@ -171,9 +171,13 @@ fn main() -> () {
         })
         .start();
     info!("Running the worker");
-    let url = "ws://127.0.0.1:8800";
+    let url = match env::var("WORKER_URL") {
+        Ok(worker_url) => worker_url,
+        Err(_) => "ws://127.0.0.1:8800".to_string(),
+    };
+
     let mut worker = Worker::initial();
-    match ws2::connect(url) {
+    match ws2::connect(&url) {
         Ok(mut ws_client) => {
             let connected = ws_client.is_open();
             if connected {
