@@ -29,15 +29,17 @@ maintenance = { status = "passively-maintained" }
 name = "snow-scanner"
 path = "src/main.rs"
 
-[[bin]]
-name = "snow-scanner-worker"
-path = "src/worker/worker.rs"
+[workspace]
+
+members = [
+    "src/worker"
+]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-log2 = "0.1.11"
 ws2 = "0.2.5"
+log2 = "0.1.11"
 actix-web = "4"
 actix-files = "0.6.6"
 # mariadb-dev on Alpine
