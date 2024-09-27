@@ -272,18 +272,17 @@ impl<'de> Deserialize<'de> for SecurePath {
     where
         D: Deserializer<'de>,
     {
-        let s = <Vec<String>>::deserialize(deserializer)?;
-        let k: String = s[0].to_string();
+        let s = <String>::deserialize(deserializer)?;
         // A-Z a-z 0-9
         // . - _
-        if k.chars()
+        if s.chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '_')
         {
-            return Ok(SecurePath { data: k });
+            return Ok(SecurePath { data: s });
         }
         Err(serde::de::Error::custom(format!(
             "Invalid value: {}",
-            k.to_string()
+            s.to_string()
         )))
     }
 }
