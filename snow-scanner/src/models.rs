@@ -171,9 +171,7 @@ impl ScanTask {
         let res = scan_tasks
             .select(ScanTaskitem::as_select())
             .filter(scan_tasks::started_at.is_null())
-            .order((
-                scan_tasks::created_at.asc(),
-            ))
+            .order((scan_tasks::created_at.asc(),))
             .load::<ScanTaskitem>(conn);
         match res {
             Ok(rows) => Ok(rows),

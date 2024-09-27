@@ -175,7 +175,6 @@ fn main() -> () {
         Ok(worker_url) => worker_url,
         Err(_) => "ws://127.0.0.1:8800".to_string(),
     };
-
     let mut worker = Worker::initial();
     match ws2::connect(&url) {
         Ok(mut ws_client) => {
