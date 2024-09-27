@@ -165,6 +165,22 @@ pub struct ScanTaskitem {
 }
 
 impl ScanTask {
+    pub fn list_not_started(conn: &mut MysqlConnection) -> Result<Vec<ScanTaskitem>, DieselError> {
+        use crate::schema::scan_tasks;
+
+        let res = scan_tasks
+            .select(ScanTaskitem::as_select())
+            .filter(scan_tasks::started_at.is_null())
+            .order((
+                scan_tasks::created_at.asc(),
+            ))
+            .load::<ScanTaskitem>(conn);
+        match res {
+            Ok(rows) => Ok(rows),
+            Err(err) => Err(err),
+        }
+    }
+
     pub fn list(conn: &mut MysqlConnection) -> Result<Vec<ScanTaskitem>, DieselError> {
         use crate::schema::scan_tasks;
 
