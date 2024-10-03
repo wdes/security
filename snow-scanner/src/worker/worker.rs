@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::{env, net::IpAddr};
 
 use chrono::{Duration, NaiveDateTime, Utc};
@@ -52,7 +53,7 @@ impl Into<Worker> for WebSocket<MaybeTlsStream<std::net::TcpStream>> {
 }
 
 impl Worker {
-    pub fn wait_for_messages(&mut self) -> Result<(), Error> {
+    pub fn wait_for_messages(&mut self) -> Result<bool, Error> {
         self.tick();
         match self.ws.read() {
             Ok(server_request) => {
@@ -66,15 +67,18 @@ impl Worker {
                     Message::Pong(_) => {}
                     Message::Frame(_) => {}
                     Message::Binary(_) => {}
-                    Message::Close(_) => {}
+                    Message::Close(_) => {
+                        return Ok(true); // Break the processing loop
+                    }
                 };
-                Ok(())
+                Ok(false)
             }
             Err(err) => {
                 match err {
                     // Silently drop the error: Processing error: IO error: Resource temporarily unavailable (os error 11)
                     // That occurs when no messages are to be read
-                    Error::Io(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
+                    Error::Io(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(false),
+                    Error::Io(ref e) if e.kind() == std::io::ErrorKind::NotConnected => Ok(true), // Break the processing loop
                     _ => Err(err),
                 }
             }
@@ -216,8 +220,22 @@ fn main() -> () {
             let mut worker: Worker = socket.into();
             loop {
                 match worker.wait_for_messages() {
-                    Ok(_) => {}
-                    Err(err) => error!("Processing error: {err}"),
+                    Ok(true) => {
+                        error!("Stopping processing");
+                        break;
+                    }
+                    Ok(false) => {
+                        // Keep processing
+                    }
+                    Err(tungstenite::Error::ConnectionClosed) => {
+                        error!("Stopping processing: connection closed");
+                        break;
+                    }
+                    Err(tungstenite::Error::AlreadyClosed) => {
+                        error!("Stopping processing: connection already closed");
+                        break;
+                    }
+                    Err(err) => error!("Processing error: {err} -> {:?}", err),
                 }
             }
         }

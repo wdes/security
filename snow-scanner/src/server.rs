@@ -75,6 +75,16 @@ impl<'a> Worker<'a> {
         self.stream.next()
     }
 
+    pub async fn tick(&mut self) -> Result<bool, ()> {
+        match self.send(rocket_ws::Message::Ping(vec![])).await {
+            Ok(_) => Ok(false),
+            Err(err) => {
+                error!("Processing error: {err}");
+                Ok(true) // Break processing loop
+            }
+        }
+    }
+
     pub async fn poll(&mut self) -> Result<bool, ()> {
         let message = self.next();
 
@@ -97,7 +107,7 @@ impl<'a> Worker<'a> {
                             reason: "Client disconected".to_string().into(),
                         };
                         let _ = self.stream.close(Some(close_frame)).await;
-                        return Ok(true);
+                        return Ok(true); // Break processing loop
                     }
                     rocket_ws::Message::Ping(ping_data) => {
                         match self.send(rocket_ws::Message::Pong(ping_data)).await {
@@ -123,7 +133,7 @@ impl<'a> Worker<'a> {
                 };
                 let _ = self.stream.close(Some(close_frame)).await;
                 // The connection is closed by the client
-                Ok(true)
+                Ok(true) // Break processing loop
             }
             None => Ok(false),
         }

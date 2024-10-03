@@ -3,7 +3,7 @@ use chrono::{NaiveDateTime, Utc};
 #[macro_use]
 extern crate rocket;
 
-use rocket::{fairing::AdHoc, futures::SinkExt, trace::error, Build, Rocket, State};
+use rocket::{fairing::AdHoc, trace::error, Build, Rocket, State};
 use rocket_db_pools::{
     rocket::{
         figment::{
@@ -479,24 +479,23 @@ async fn pong() -> PlainText {
 
 #[get("/ws")]
 pub async fn ws(ws: WebSocket) -> rocket_ws::Channel<'static> {
-    use rocket::futures::StreamExt;
     use rocket::tokio;
     use rocket_ws as ws;
     use std::time::Duration;
 
     ws.channel(move |mut stream: ws::stream::DuplexStream| {
         Box::pin(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(10));
+            let mut interval = tokio::time::interval(Duration::from_secs(60));
 
             tokio::spawn(async move {
                 let mut worker = Worker::initial(&mut stream);
                 loop {
                     tokio::select! {
                         _ = interval.tick() => {
-                            // Send message every 10 seconds
-                            //let reading = get_latest_readings().await.unwrap();
-                            //let _ = stream.send(ws::Message::Text(json!(reading).to_string())).await;
-                            // info!("Sent message");
+                            // Send message every X seconds
+                            if let Ok(true) = worker.tick().await {
+                                break;
+                            }
                         }
                         Ok(false) = worker.poll() => {
                             // Continue the loop
