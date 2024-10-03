@@ -1,21 +1,92 @@
 use cidr::IpCidr;
 use hickory_resolver::Name;
 use rocket::futures::{stream::Next, SinkExt, StreamExt};
-use rocket_ws::Message;
-use std::{collections::HashMap, net::IpAddr, str::FromStr};
+use rocket_ws::{frame::CloseFrame, Message};
+use std::{collections::HashMap, net::IpAddr, ops::Deref, str::FromStr, sync::Mutex};
 
 use crate::worker::{
     detection::detect_scanner_from_name,
     modules::{Network, WorkerMessages},
 };
 use crate::{DbConn, Scanner};
+use rocket::futures::channel::mpsc::Sender;
 
-pub struct Server<'a> {
-    pub clients: HashMap<u32, Worker<'a>>,
+pub type WorkersList = Vec<Sender<Message>>;
+
+pub struct SharedData {
+    pub workers: Mutex<WorkersList>,
+}
+
+impl SharedData {
+    pub fn init() -> SharedData {
+        SharedData {
+            workers: Mutex::new(vec![]),
+        }
+    }
+
+    pub fn add_worker(tx: Sender<Message>, workers: &Mutex<WorkersList>) -> () {
+        let workers_lock = workers.try_lock();
+        if let Ok(mut workers) = workers_lock {
+            workers.push(tx);
+            info!("Clients: {}", workers.len());
+            std::mem::drop(workers);
+        } else {
+            error!("Unable to lock workers");
+        }
+    }
+
+    pub fn shutdown_to_all(workers: &Mutex<WorkersList>) -> () {
+        let workers_lock = workers.try_lock();
+        if let Ok(ref workers) = workers_lock {
+            workers.iter().for_each(|tx| {
+                let res = tx.clone().try_send(Message::Close(Some(CloseFrame {
+                    code: rocket_ws::frame::CloseCode::Away,
+                    reason: "Server stop".into(),
+                })));
+                match res {
+                    Ok(_) => {
+                        info!("Worker did receive stop signal.");
+                    }
+                    Err(err) => {
+                        error!("Send error: {err}");
+                    }
+                };
+            });
+            info!("Currently {} workers online.", workers.len());
+            std::mem::drop(workers_lock);
+        } else {
+            error!("Unable to lock workers");
+        }
+    }
+
+    pub fn send_to_all(workers: &Mutex<WorkersList>, message: &str) -> () {
+        let workers_lock = workers.try_lock();
+        if let Ok(ref workers) = workers_lock {
+            workers.iter().for_each(|tx| {
+                let res = tx.clone().try_send(Message::Text(message.to_string()));
+                match res {
+                    Ok(_) => {
+                        info!("Message sent to worker !");
+                    }
+                    Err(err) => {
+                        error!("Send error: {err}");
+                    }
+                };
+            });
+            info!("Currently {} workers online.", workers.len());
+            std::mem::drop(workers_lock);
+        } else {
+            error!("Unable to lock workers");
+        }
+    }
+}
+
+pub struct Server {
+    pub clients: HashMap<u32, String>,
     pub new_scanners: HashMap<String, IpAddr>,
 }
 
-impl<'a> Server<'a> {
+impl Server {
     pub async fn commit(&mut self, conn: &mut DbConn) -> &Server {
         for (name, query_address) in self.new_scanners.clone() {
             let scanner_name = Name::from_str(name.as_str()).unwrap();

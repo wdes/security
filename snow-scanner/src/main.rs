@@ -3,7 +3,8 @@ use chrono::{NaiveDateTime, Utc};
 #[macro_use]
 extern crate rocket;
 
-use rocket::{fairing::AdHoc, trace::error, Build, Rocket, State};
+use rocket::futures::channel::mpsc::channel;
+use rocket::{fairing::AdHoc, trace::error, Rocket, State};
 use rocket_db_pools::{
     rocket::{
         figment::{
@@ -24,8 +25,9 @@ use rocket_db_pools::diesel::MysqlPool;
 use rocket_db_pools::diesel::{deserialize, serialize};
 use rocket_db_pools::Database;
 
+use ::ws::Message;
 use rocket_ws::WebSocket;
-use server::Worker;
+use server::{SharedData, Worker};
 use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
 use std::path::PathBuf;
@@ -462,28 +464,20 @@ async fn pong() -> PlainText {
     PlainText("pong".to_string())
 }
 
-/*
-    let mut ws_server_handles = Server {
-        clients: HashMap::new(),
-        new_scanners: HashMap::new(),
-    };
-    info!("Worker server is listening on: {worker_server_address}");
-    loop {
-        match ws_server.process(&mut ws_server_handles, 0.5) {
-            Ok(_) => {}
-            Err(err) => error!("Processing error: {err}"),
-        }
-        ws_server_handles.cleanup(&ws_server);
-        ws_server_handles.commit(conn);
-}*/
-
 #[get("/ws")]
-pub async fn ws(ws: WebSocket) -> rocket_ws::Channel<'static> {
+pub async fn ws(ws: WebSocket, shared: &State<SharedData>) -> rocket_ws::Channel<'static> {
+    use crate::rocket::futures::StreamExt;
     use rocket::tokio;
     use rocket_ws as ws;
     use std::time::Duration;
 
-    ws.channel(move |mut stream: ws::stream::DuplexStream| {
+    let (tx, mut rx) = channel::<ws::Message>(1);
+
+    SharedData::add_worker(tx, &shared.workers);
+
+    SharedData::send_to_all(&shared.workers, "I am new !");
+
+    let channel = ws.channel(move |mut stream: ws::stream::DuplexStream| {
         Box::pin(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(60));
 
@@ -497,6 +491,10 @@ pub async fn ws(ws: WebSocket) -> rocket_ws::Channel<'static> {
                                 break;
                             }
                         }
+                        Some(message) = rx.next() => {
+                            println!("Received message from other client: {:?}", message);
+                            let _ = worker.send(message).await;
+                        },
                         Ok(false) = worker.poll() => {
                             // Continue the loop
                         }
@@ -510,14 +508,16 @@ pub async fn ws(ws: WebSocket) -> rocket_ws::Channel<'static> {
             tokio::signal::ctrl_c().await.unwrap();
             Ok(())
         })
-    })
+    });
+
+    channel
 }
 
 struct AppConfigs {
     static_data_dir: String,
 }
 
-async fn report_counts(rocket: Rocket<Build>) -> Rocket<Build> {
+async fn report_counts<'a>(rocket: Rocket<rocket::Build>) -> Rocket<rocket::Build> {
     use rocket_db_pools::diesel::AsyncConnectionWrapper;
 
     let conn = SnowDb::fetch(&rocket)
@@ -572,6 +572,14 @@ fn rocket() -> _ {
     rocket::custom(config_figment)
         .attach(SnowDb::init())
         .attach(AdHoc::on_ignite("Report counts", report_counts))
+        .attach(AdHoc::on_shutdown("Close Websockets", |r| {
+            Box::pin(async move {
+                if let Some(clients) = r.state::<SharedData>() {
+                    SharedData::shutdown_to_all(&clients.workers);
+                }
+            })
+        }))
+        .manage(SharedData::init())
         .manage(AppConfigs { static_data_dir })
         .mount(
             "/",

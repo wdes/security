@@ -1,4 +1,3 @@
-use std::any::Any;
 use std::{env, net::IpAddr};
 
 use chrono::{Duration, NaiveDateTime, Utc};
