@@ -1,17 +1,7 @@
-use cidr::IpCidr;
-use diesel::MysqlConnection;
 use hickory_resolver::Name;
-use log2::*;
 use std::{collections::HashMap, net::IpAddr, str::FromStr};
-use ws2::{Pod, WebSocket};
 
-use crate::{
-    worker::{
-        detection::detect_scanner_from_name,
-        modules::{Network, WorkerMessages},
-    },
-    DbPool, Scanner,
-};
+use crate::{worker::detection::detect_scanner_from_name, DbConn, Scanner};
 
 pub struct Server {
     pub clients: HashMap<u32, Worker>,
@@ -19,12 +9,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn cleanup(&self, _: &ws2::Server) -> &Server {
-        // TODO: implement check not logged in
-        &self
-    }
-
-    pub fn commit(&mut self, conn: &mut MysqlConnection) -> &Server {
+    pub async fn commit(&mut self, conn: &mut DbConn) -> &Server {
         for (name, query_address) in self.new_scanners.clone() {
             let scanner_name = Name::from_str(name.as_str()).unwrap();
 
@@ -35,7 +20,9 @@ impl Server {
                         scanner_type,
                         Some(scanner_name),
                         conn,
-                    ) {
+                    )
+                    .await
+                    {
                         Ok(scanner) => {
                             // Got saved
                             self.new_scanners.remove(&name);
@@ -92,6 +79,7 @@ impl Worker {
     }
 }
 
+/*
 impl ws2::Handler for Server {
     fn on_open(&mut self, ws: &WebSocket) -> Pod {
         info!("New client: {ws}");
@@ -165,4 +153,4 @@ impl ws2::Handler for Server {
         }
         result
     }
-}
+}*/

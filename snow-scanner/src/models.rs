@@ -1,11 +1,9 @@
 use std::net::IpAddr;
 
-use crate::Scanners;
+use crate::{DbConn, Scanners};
 use chrono::{NaiveDateTime, Utc};
-use diesel::dsl::insert_into;
-use diesel::prelude::*;
-use diesel::result::Error as DieselError;
 use hickory_resolver::Name;
+use rocket_db_pools::diesel::{dsl::insert_into, prelude::*, result::Error as DieselError};
 
 use crate::schema::scan_tasks::dsl::scan_tasks;
 use crate::schema::scanners::dsl::scanners;
@@ -25,14 +23,14 @@ pub struct Scanner {
 }
 
 impl Scanner {
-    pub fn find_or_new(
+    pub async fn find_or_new(
         query_address: IpAddr,
         scanner_name: Scanners,
         ptr: Option<Name>,
-        conn: &mut MysqlConnection,
+        conn: &mut DbConn,
     ) -> Result<Scanner, ()> {
         let ip_type = if query_address.is_ipv6() { 6 } else { 4 };
-        let scanner_row_result = Scanner::find(query_address.to_string(), ip_type, conn);
+        let scanner_row_result = Scanner::find(query_address.to_string(), ip_type, conn).await;
         let scanner_row = match scanner_row_result {
             Ok(scanner_row) => scanner_row,
             Err(_) => return Err(()),
@@ -58,31 +56,31 @@ impl Scanner {
                 last_checked_at: None,
             }
         };
-        match scanner.save(conn) {
+        match scanner.save(conn).await {
             Ok(scanner) => Ok(scanner),
             Err(_) => Err(()),
         }
     }
 
-    pub fn find(
+    pub async fn find(
         ip_address: String,
         ip_type: u8,
-        conn: &mut MysqlConnection,
+        conn: &mut DbConn,
     ) -> Result<Option<Scanner>, DieselError> {
         use crate::schema::scanners;
-
         scanners
             .select(Scanner::as_select())
             .filter(scanners::ip.eq(ip_address))
             .filter(scanners::ip_type.eq(ip_type))
             .order((scanners::ip_type.desc(), scanners::created_at.desc()))
             .first(conn)
+            .await
             .optional()
     }
 
-    pub fn list_names(
+    pub async fn list_names(
         scanner_name: Scanners,
-        conn: &mut MysqlConnection,
+        conn: &mut DbConn,
     ) -> Result<Vec<String>, DieselError> {
         use crate::schema::scanners;
         use crate::schema::scanners::ip;
@@ -92,16 +90,20 @@ impl Scanner {
             .filter(scanners::scanner_name.eq(scanner_name.to_string()))
             .order((scanners::ip_type.desc(), scanners::created_at.desc()))
             .load::<String>(conn)
+            .await
     }
 
-    pub fn save(self: Scanner, conn: &mut MysqlConnection) -> Result<Scanner, DieselError> {
-        let new_scanner = NewScanner::from_scanner(&self);
-        match insert_into(scanners)
+    pub async fn save(self: Scanner, conn: &mut DbConn) -> Result<Scanner, DieselError> {
+        use crate::schema::scanners;
+
+        let new_scanner: NewScanner = NewScanner::from_scanner(&self).await;
+        match insert_into(scanners::table)
             .values(&new_scanner)
             .on_conflict(diesel::dsl::DuplicatedKeys)
             .do_update()
             .set(&new_scanner)
             .execute(conn)
+            .await
         {
             Ok(_) => Ok(self),
             Err(err) => Err(err),
@@ -124,7 +126,7 @@ pub struct NewScanner {
 }
 
 impl NewScanner {
-    pub fn from_scanner<'x>(scanner: &Scanner) -> NewScanner {
+    pub async fn from_scanner<'x>(scanner: &Scanner) -> NewScanner {
         NewScanner {
             ip: scanner.ip.to_string(),
             ip_type: scanner.ip_type,
@@ -165,21 +167,22 @@ pub struct ScanTaskitem {
 }
 
 impl ScanTask {
-    pub fn list_not_started(conn: &mut MysqlConnection) -> Result<Vec<ScanTaskitem>, DieselError> {
+    pub async fn list_not_started(mut conn: DbConn) -> Result<Vec<ScanTaskitem>, DieselError> {
         use crate::schema::scan_tasks;
 
         let res = scan_tasks
             .select(ScanTaskitem::as_select())
             .filter(scan_tasks::started_at.is_null())
             .order((scan_tasks::created_at.asc(),))
-            .load::<ScanTaskitem>(conn);
+            .load::<ScanTaskitem>(&mut conn)
+            .await;
         match res {
             Ok(rows) => Ok(rows),
             Err(err) => Err(err),
         }
     }
 
-    pub fn list(conn: &mut MysqlConnection) -> Result<Vec<ScanTaskitem>, DieselError> {
+    pub async fn list(conn: &mut DbConn) -> Result<Vec<ScanTaskitem>, DieselError> {
         use crate::schema::scan_tasks;
 
         let res = scan_tasks
@@ -188,21 +191,26 @@ impl ScanTask {
                 scan_tasks::created_at.desc(),
                 scan_tasks::task_group_id.asc(),
             ))
-            .load::<ScanTaskitem>(conn);
+            .load::<ScanTaskitem>(conn)
+            .await;
         match res {
             Ok(rows) => Ok(rows),
             Err(err) => Err(err),
         }
     }
 
-    pub fn save(self: &ScanTask, conn: &mut MysqlConnection) -> Result<(), DieselError> {
-        let new_scan_task = NewScanTask::from_scan_task(self);
-        match insert_into(scan_tasks)
+    pub async fn save(self: &ScanTask, conn: &mut DbConn) -> Result<(), DieselError> {
+        use crate::schema::scan_tasks;
+
+        let new_scan_task: NewScanTask = NewScanTask::from_scan_task(self).await;
+
+        match insert_into(scan_tasks::table)
             .values(&new_scan_task)
             .on_conflict(diesel::dsl::DuplicatedKeys)
             .do_update()
             .set(&new_scan_task)
             .execute(conn)
+            .await
         {
             Ok(_) => Ok(()),
             Err(err) => Err(err),
@@ -225,7 +233,7 @@ pub struct NewScanTask {
 }
 
 impl NewScanTask {
-    pub fn from_scan_task<'x>(scan_task: &ScanTask) -> NewScanTask {
+    pub async fn from_scan_task<'x>(scan_task: &ScanTask) -> NewScanTask {
         NewScanTask {
             task_group_id: scan_task.task_group_id.to_string(),
             cidr: scan_task.cidr.to_owned(),

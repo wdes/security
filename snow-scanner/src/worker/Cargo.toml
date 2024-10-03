@@ -15,7 +15,7 @@ path = "worker.rs"
 [dependencies]
 tungstenite = { version = "0.24.0", default-features = true, features = ["native-tls"] }
 log2 = "0.1.11"
-diesel = { version = "2.2.0", default-features = false, features = [] }
+diesel = { version = "2", default-features = false, features = [] }
 dns-ptr-resolver = {git = "https://github.com/wdes/dns-ptr-resolver.git"}
 hickory-resolver = { version = "0.24.1", default-features = false, features = ["tokio-runtime", "dns-over-h3", "dns-over-https", "dns-over-quic"]}
 chrono = "0.4.38"
