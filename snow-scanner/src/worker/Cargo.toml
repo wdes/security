@@ -14,6 +14,7 @@ path = "worker.rs"
 
 [dependencies]
 tungstenite = { version = "0.24.0", default-features = true, features = ["native-tls"] }
+rocket_ws = { git = "https://github.com/rwf2/Rocket/", rev = "3bf9ef02d6e803fe9f753777f5a829dda6d2453d", default-features = true}
 log2 = "0.1.11"
 diesel = { version = "2", default-features = false, features = [] }
 dns-ptr-resolver = {git = "https://github.com/wdes/dns-ptr-resolver.git"}

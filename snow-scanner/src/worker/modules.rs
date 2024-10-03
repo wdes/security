@@ -1,6 +1,7 @@
 use std::{net::IpAddr, str::FromStr};
 
 use cidr::IpCidr;
+use rocket_ws::Message as RocketMessage;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,6 +63,20 @@ impl Into<WorkerMessages> for String {
             Err(err) => WorkerMessages::Invalid {
                 err: err.to_string(),
             },
+        }
+    }
+}
+
+impl TryInto<WorkerMessages> for RocketMessage {
+    type Error = String;
+
+    fn try_into(self) -> Result<WorkerMessages, Self::Error> {
+        match self {
+            RocketMessage::Text(data) => {
+                let data: WorkerMessages = data.into();
+                Ok(data)
+            }
+            _ => Err("Only text is supported".to_string()),
         }
     }
 }

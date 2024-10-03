@@ -190,24 +190,6 @@ impl Worker {
     }
 }
 
-/*impl ws2::Handler for Worker {
-    fn on_open(&mut self, ws: &WebSocket) -> Pod {
-        info!("Connected to: {ws}, starting to work");
-        Ok(())
-    }
-
-    fn on_close(&mut self, ws: &WebSocket) -> Pod {
-        info!("End of the work day: {ws}");
-        Ok(())
-    }
-
-    fn on_message(&mut self, ws: &WebSocket, msg: String) -> Pod {
-        let server_request: WorkerMessages = msg.clone().into();
-        self.receive_request(ws, server_request);
-        Ok(())
-    }
-}*/
-
 fn main() -> () {
     let _log2 = log2::stdout()
         .module(true)

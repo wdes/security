@@ -3,7 +3,7 @@ use chrono::{NaiveDateTime, Utc};
 #[macro_use]
 extern crate rocket;
 
-use rocket::{fairing::AdHoc, Build, Rocket, State};
+use rocket::{fairing::AdHoc, futures::SinkExt, trace::error, Build, Rocket, State};
 use rocket_db_pools::{
     rocket::{
         figment::{
@@ -20,15 +20,17 @@ use rocket_db_pools::{
 use rocket_db_pools::diesel::mysql::{Mysql, MysqlValue};
 use rocket_db_pools::diesel::serialize::IsNull;
 use rocket_db_pools::diesel::sql_types::Text;
-use rocket_db_pools::diesel::{deserialize, serialize};
 use rocket_db_pools::diesel::MysqlPool;
+use rocket_db_pools::diesel::{deserialize, serialize};
 use rocket_db_pools::Database;
 
+use rocket_ws::WebSocket;
+use server::Worker;
 use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
-use std::{io::Write, net::SocketAddr};
 use std::path::PathBuf;
 use std::{env, fmt};
+use std::{io::Write, net::SocketAddr};
 use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -460,19 +462,56 @@ async fn pong() -> PlainText {
     PlainText("pong".to_string())
 }
 
+/*
+    let mut ws_server_handles = Server {
+        clients: HashMap::new(),
+        new_scanners: HashMap::new(),
+    };
+    info!("Worker server is listening on: {worker_server_address}");
+    loop {
+        match ws_server.process(&mut ws_server_handles, 0.5) {
+            Ok(_) => {}
+            Err(err) => error!("Processing error: {err}"),
+        }
+        ws_server_handles.cleanup(&ws_server);
+        ws_server_handles.commit(conn);
+}*/
+
 #[get("/ws")]
-pub async fn ws() -> PlainText {
-    info!("establish_ws_connection");
-    PlainText("ok".to_string())
-    // Ok(HttpResponse::Unauthorized().json(e))
-    /*
-    match result {
-        Ok(response) => Ok(response.into()),
-        Err(e) => {
-            error!("ws connection error: {:?}", e);
-            Err(e)
-        },
-    }*/
+pub async fn ws(ws: WebSocket) -> rocket_ws::Channel<'static> {
+    use rocket::futures::StreamExt;
+    use rocket::tokio;
+    use rocket_ws as ws;
+    use std::time::Duration;
+
+    ws.channel(move |mut stream: ws::stream::DuplexStream| {
+        Box::pin(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(10));
+
+            tokio::spawn(async move {
+                let mut worker = Worker::initial(&mut stream);
+                loop {
+                    tokio::select! {
+                        _ = interval.tick() => {
+                            // Send message every 10 seconds
+                            //let reading = get_latest_readings().await.unwrap();
+                            //let _ = stream.send(ws::Message::Text(json!(reading).to_string())).await;
+                            // info!("Sent message");
+                        }
+                        Ok(false) = worker.poll() => {
+                            // Continue the loop
+                        }
+                        else => {
+                            break;
+                        }
+                    }
+                }
+            });
+
+            tokio::signal::ctrl_c().await.unwrap();
+            Ok(())
+        })
+    })
 }
 
 struct AppConfigs {
@@ -484,7 +523,8 @@ async fn report_counts(rocket: Rocket<Build>) -> Rocket<Build> {
 
     let conn = SnowDb::fetch(&rocket)
         .expect("database is attached")
-        .get().await
+        .get()
+        .await
         .unwrap_or_else(|e| {
             span_error!("failed to connect to MySQL database" => error!("{e}"));
             panic!("aborting launch");
@@ -499,9 +539,12 @@ async fn report_counts(rocket: Rocket<Build>) -> Rocket<Build> {
 #[launch]
 fn rocket() -> _ {
     let server_address: SocketAddr = if let Ok(env) = env::var("SERVER_ADDRESS") {
-        env.parse().expect("The ENV SERVER_ADDRESS should be a valid socket address (address:port)")
+        env.parse()
+            .expect("The ENV SERVER_ADDRESS should be a valid socket address (address:port)")
     } else {
-        "127.0.0.1:8000".parse().expect("The default address should be valid")
+        "127.0.0.1:8000"
+            .parse()
+            .expect("The default address should be valid")
     };
 
     let static_data_dir: String = match env::var("STATIC_DATA_DIR") {
@@ -544,32 +587,4 @@ fn rocket() -> _ {
                 ws,
             ],
         )
-    /*
-
-    match server {
-        Ok(server) => {
-            match ws2::listen(worker_server_address.as_str()) {
-                Ok(mut ws_server) => {
-                    std::thread::spawn(move || {
-                        let pool = get_connection(db_url.as_str());
-                        // note that obtaining a connection from the pool is also potentially blocking
-                        let conn = &mut pool.get().unwrap();
-                        let mut ws_server_handles = Server {
-                            clients: HashMap::new(),
-                            new_scanners: HashMap::new(),
-                        };
-                        info!("Worker server is listening on: {worker_server_address}");
-                        loop {
-                            match ws_server.process(&mut ws_server_handles, 0.5) {
-                                Ok(_) => {}
-                                Err(err) => error!("Processing error: {err}"),
-                            }
-                            ws_server_handles.cleanup(&ws_server);
-                            ws_server_handles.commit(conn);
-                        }
-                    });
-                }
-                Err(err) => error!("Unable to listen on {worker_server_address}: {err}"),
-            };
-    }*/
 }
