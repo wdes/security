@@ -67,6 +67,12 @@ impl Into<WorkerMessages> for String {
     }
 }
 
+impl Into<RocketMessage> for WorkerMessages {
+    fn into(self) -> RocketMessage {
+        RocketMessage::Text(self.to_string())
+    }
+}
+
 impl TryInto<WorkerMessages> for RocketMessage {
     type Error = String;
 

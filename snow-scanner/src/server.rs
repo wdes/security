@@ -1,11 +1,10 @@
-use cidr::IpCidr;
 use rocket::futures::{stream::Next, SinkExt, StreamExt};
 use rocket_ws::{frame::CloseFrame, Message};
-use std::{pin::Pin, str::FromStr};
+use std::pin::Pin;
 
 use crate::{
     event_bus::{EventBusEvent, EventBusWriter},
-    worker::modules::{Network, WorkerMessages},
+    worker::modules::WorkerMessages,
 };
 use rocket::futures::channel::mpsc as rocket_mpsc;
 
@@ -21,10 +20,8 @@ impl WsChat {
         use crate::rocket::futures::StreamExt;
         use rocket::tokio;
 
-        let _ = bus_tx
-            .send(rocket_ws::Message::Text("I am new !".to_string()))
-            .await;
-        //SharedData::send_to_all(&workers, "I am new !");
+        let _ = bus_tx.send(rocket_ws::Message::Ping(vec![])).await;
+
         let mut worker = Worker::initial(&mut stream);
         let mut interval = rocket::tokio::time::interval(std::time::Duration::from_secs(60));
         loop {
@@ -279,10 +276,7 @@ impl<'a> Worker<'a> {
                 Ok(())
             }
             WorkerMessages::GetWorkRequest {} => {
-                let net = IpCidr::from_str("52.189.78.0/24").unwrap();
-                worker_reply = Some(WorkerMessages::DoWorkRequest {
-                    neworks: vec![Network(net)],
-                });
+                worker_reply = Some(WorkerMessages::DoWorkRequest { neworks: vec![] });
                 Ok(())
             }
             WorkerMessages::DoWorkRequest { .. } | WorkerMessages::Invalid { .. } => {

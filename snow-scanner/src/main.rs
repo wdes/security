@@ -3,6 +3,7 @@ use chrono::{NaiveDateTime, Utc};
 #[macro_use]
 extern crate rocket;
 
+use cidr::IpCidr;
 use event_bus::{EventBusSubscriber, EventBusWriter};
 use rocket::{fairing::AdHoc, futures::SinkExt, trace::error, Rocket, State};
 use rocket_db_pools::{
@@ -18,6 +19,8 @@ use rocket_db_pools::{
     Connection,
 };
 
+use crate::worker::modules::{Network, WorkerMessages};
+
 use rocket_db_pools::diesel::mysql::{Mysql, MysqlValue};
 use rocket_db_pools::diesel::serialize::IsNull;
 use rocket_db_pools::diesel::sql_types::Text;
@@ -29,9 +32,9 @@ use rocket_ws::WebSocket;
 use server::Server;
 use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
-use std::path::PathBuf;
 use std::{env, fmt};
 use std::{io::Write, net::SocketAddr};
+use std::{path::PathBuf, str::FromStr};
 use uuid::Uuid;
 
 use serde::{Deserialize, Deserializer, Serialize};
@@ -220,17 +223,21 @@ enum MultiReply {
 }
 
 #[post("/scan", data = "<form>")]
-async fn handle_scan(mut db: DbConn, form: Form<ScanParams<'_>>) -> MultiReply {
+async fn handle_scan(
+    mut db: DbConn,
+    form: Form<ScanParams<'_>>,
+    event_bus_writer: &State<EventBusWriter>,
+) -> MultiReply {
     if form.username.len() < 4 {
         return MultiReply::FormError(PlainText("Invalid username".to_string()));
     }
 
     let task_group_id: Uuid = Uuid::now_v7();
 
-    for ip in form.ips.lines() {
+    for cidr in form.ips.lines() {
         let scan_task = ScanTask {
             task_group_id: task_group_id.to_string(),
-            cidr: ip.to_string(),
+            cidr: cidr.to_string(),
             created_by_username: form.username.to_string(),
             created_at: Utc::now().naive_utc(),
             updated_at: None,
@@ -238,8 +245,19 @@ async fn handle_scan(mut db: DbConn, form: Form<ScanParams<'_>>) -> MultiReply {
             still_processing_at: None,
             ended_at: None,
         };
+        let mut bus_tx = event_bus_writer.write();
         match scan_task.save(&mut db).await {
-            Ok(_) => error!("Added {}", ip.to_string()),
+            Ok(_) => {
+                info!("Added {}", cidr.to_string());
+                let net = IpCidr::from_str(cidr).unwrap();
+
+                let msg = WorkerMessages::DoWorkRequest {
+                    neworks: vec![Network(net)],
+                }
+                .into();
+
+                let _ = bus_tx.send(msg).await;
+            }
             Err(err) => error!("Not added: {:?}", err),
         }
     }
@@ -460,11 +478,7 @@ async fn index() -> HtmlContents {
 }
 
 #[get("/ping")]
-async fn pong(event_bus_writer: &State<EventBusWriter>) -> PlainText {
-    let mut bus_tx = event_bus_writer.write();
-    let _ = bus_tx
-        .send(rocket_ws::Message::Text("Groumpf!".to_string()))
-        .await;
+async fn pong() -> PlainText {
     PlainText("pong".to_string())
 }
 
