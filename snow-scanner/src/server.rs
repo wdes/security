@@ -1,30 +1,105 @@
 use cidr::IpCidr;
-use hickory_resolver::Name;
 use rocket::futures::{stream::Next, SinkExt, StreamExt};
 use rocket_ws::{frame::CloseFrame, Message};
-use std::{collections::HashMap, net::IpAddr, ops::Deref, str::FromStr, sync::Mutex};
+use std::{pin::Pin, str::FromStr};
 
-use crate::worker::{
-    detection::detect_scanner_from_name,
-    modules::{Network, WorkerMessages},
+use crate::{
+    event_bus::{EventBusEvent, EventBusWriter},
+    worker::modules::{Network, WorkerMessages},
 };
-use crate::{DbConn, Scanner};
-use rocket::futures::channel::mpsc::Sender;
+use rocket::futures::channel::mpsc as rocket_mpsc;
 
-pub type WorkersList = Vec<Sender<Message>>;
+pub struct WsChat {}
 
-pub struct SharedData {
-    pub workers: Mutex<WorkersList>,
-}
+impl WsChat {
+    pub async fn work(
+        mut stream: rocket_ws::stream::DuplexStream,
+        mut bus_rx: rocket::tokio::sync::broadcast::Receiver<EventBusEvent>,
+        mut bus_tx: rocket_mpsc::Sender<EventBusEvent>,
+        mut ws_receiver: rocket_mpsc::Receiver<rocket_ws::Message>,
+    ) {
+        use crate::rocket::futures::StreamExt;
+        use rocket::tokio;
 
-impl SharedData {
-    pub fn init() -> SharedData {
-        SharedData {
-            workers: Mutex::new(vec![]),
+        let _ = bus_tx
+            .send(rocket_ws::Message::Text("I am new !".to_string()))
+            .await;
+        //SharedData::send_to_all(&workers, "I am new !");
+        let mut worker = Worker::initial(&mut stream);
+        let mut interval = rocket::tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // Send message every X seconds
+                    if let Ok(true) = worker.tick().await {
+                        break;
+                    }
+                }
+                result = bus_rx.recv() => {
+                    let message = match result {
+                        Ok(message) => message,
+                        Err(err) => {
+                            error!("Bus error: {err}");
+                            continue;
+                        }
+                    };
+                    if let Err(err) = worker.send(message).await {
+                        error!("Error sending event to Event bus WebSocket: {}", err);
+                        break;
+                    }
+                }
+                Some(message) = ws_receiver.next() => {
+                    info!("Received message from other client: {:?}", message);
+                    let _ = worker.send(message).await;
+                },
+                Ok(false) = worker.poll() => {
+                    // Continue the loop
+                }
+                else => {
+                    break;
+                }
+            }
         }
     }
+}
 
-    pub fn add_worker(tx: Sender<Message>, workers: &Mutex<WorkersList>) -> () {
+pub struct Server {}
+
+type HandleBox = Pin<
+    Box<dyn std::future::Future<Output = Result<(), rocket_ws::result::Error>> + std::marker::Send>,
+>;
+
+impl Server {
+    pub fn handle(
+        stream: rocket_ws::stream::DuplexStream,
+        bus_rx: rocket::tokio::sync::broadcast::Receiver<EventBusEvent>,
+        bus_tx: rocket_mpsc::Sender<EventBusEvent>,
+        ws_receiver: rocket_mpsc::Receiver<rocket_ws::Message>,
+    ) -> HandleBox {
+        use rocket::tokio;
+
+        //SharedData::add_worker(tx.clone(), &shared.workers);
+        //move |mut stream: ws::stream::DuplexStream| {
+        Box::pin(async move {
+            let work_fn = WsChat::work(
+                stream,
+                bus_rx,
+                bus_tx,
+                ws_receiver,
+                //workers
+            );
+            tokio::spawn(work_fn);
+
+            tokio::signal::ctrl_c().await.unwrap();
+            Ok(())
+        })
+    }
+
+    pub fn new() -> Server {
+        Server {}
+    }
+
+    /*pub fn add_worker(tx: rocket_mpsc::Sender<Message>, workers: &Mutex<WorkersList>) -> () {
         let workers_lock = workers.try_lock();
         if let Ok(mut workers) = workers_lock {
             workers.push(tx);
@@ -33,33 +108,24 @@ impl SharedData {
         } else {
             error!("Unable to lock workers");
         }
+    }*/
+
+    pub fn shutdown_to_all(server: &EventBusWriter) -> () {
+        let res = server.write().try_send(Message::Close(Some(CloseFrame {
+            code: rocket_ws::frame::CloseCode::Away,
+            reason: "Server stop".into(),
+        })));
+        match res {
+            Ok(_) => {
+                info!("Worker did receive stop signal.");
+            }
+            Err(err) => {
+                error!("Send error: {err}");
+            }
+        };
     }
 
-    pub fn shutdown_to_all(workers: &Mutex<WorkersList>) -> () {
-        let workers_lock = workers.try_lock();
-        if let Ok(ref workers) = workers_lock {
-            workers.iter().for_each(|tx| {
-                let res = tx.clone().try_send(Message::Close(Some(CloseFrame {
-                    code: rocket_ws::frame::CloseCode::Away,
-                    reason: "Server stop".into(),
-                })));
-                match res {
-                    Ok(_) => {
-                        info!("Worker did receive stop signal.");
-                    }
-                    Err(err) => {
-                        error!("Send error: {err}");
-                    }
-                };
-            });
-            info!("Currently {} workers online.", workers.len());
-            std::mem::drop(workers_lock);
-        } else {
-            error!("Unable to lock workers");
-        }
-    }
-
-    pub fn send_to_all(workers: &Mutex<WorkersList>, message: &str) -> () {
+    /*pub fn send_to_all(workers: &Mutex<WorkersList>, message: &str) -> () {
         let workers_lock = workers.try_lock();
         if let Ok(ref workers) = workers_lock {
             workers.iter().for_each(|tx| {
@@ -78,48 +144,7 @@ impl SharedData {
         } else {
             error!("Unable to lock workers");
         }
-    }
-}
-
-pub struct Server {
-    pub clients: HashMap<u32, String>,
-    pub new_scanners: HashMap<String, IpAddr>,
-}
-
-impl Server {
-    pub async fn commit(&mut self, conn: &mut DbConn) -> &Server {
-        for (name, query_address) in self.new_scanners.clone() {
-            let scanner_name = Name::from_str(name.as_str()).unwrap();
-
-            match detect_scanner_from_name(&scanner_name) {
-                Ok(Some(scanner_type)) => {
-                    match Scanner::find_or_new(
-                        query_address,
-                        scanner_type,
-                        Some(scanner_name),
-                        conn,
-                    )
-                    .await
-                    {
-                        Ok(scanner) => {
-                            // Got saved
-                            self.new_scanners.remove(&name);
-                            info!(
-                                "Saved {scanner_type}: {name} for {query_address}: {:?}",
-                                scanner.ip_ptr
-                            );
-                        }
-                        Err(err) => {
-                            error!("Unable to find or new {:?}", err);
-                        }
-                    };
-                }
-                Ok(None) => {}
-                Err(_) => {}
-            }
-        }
-        self
-    }
+    }*/
 }
 
 pub struct Worker<'a> {
@@ -196,7 +221,7 @@ impl<'a> Worker<'a> {
                 };
                 Ok(false)
             }
-            Some(Err(err)) => {
+            Some(Err(_)) => {
                 info!("Connection closed");
                 let close_frame = rocket_ws::frame::CloseFrame {
                     code: rocket_ws::frame::CloseCode::Normal,

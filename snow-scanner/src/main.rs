@@ -3,8 +3,8 @@ use chrono::{NaiveDateTime, Utc};
 #[macro_use]
 extern crate rocket;
 
-use rocket::futures::channel::mpsc::channel;
-use rocket::{fairing::AdHoc, trace::error, Rocket, State};
+use event_bus::{EventBusSubscriber, EventBusWriter};
+use rocket::{fairing::AdHoc, futures::SinkExt, trace::error, Rocket, State};
 use rocket_db_pools::{
     rocket::{
         figment::{
@@ -13,7 +13,7 @@ use rocket_db_pools::{
         },
         form::Form,
         fs::NamedFile,
-        launch, Responder,
+        Responder,
     },
     Connection,
 };
@@ -25,9 +25,8 @@ use rocket_db_pools::diesel::MysqlPool;
 use rocket_db_pools::diesel::{deserialize, serialize};
 use rocket_db_pools::Database;
 
-use ::ws::Message;
 use rocket_ws::WebSocket;
-use server::{SharedData, Worker};
+use server::Server;
 use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
 use std::path::PathBuf;
@@ -39,6 +38,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 use dns_ptr_resolver::{get_ptr, ResolvedResult};
 
+pub mod event_bus;
 pub mod models;
 pub mod schema;
 pub mod server;
@@ -460,55 +460,27 @@ async fn index() -> HtmlContents {
 }
 
 #[get("/ping")]
-async fn pong() -> PlainText {
+async fn pong(event_bus_writer: &State<EventBusWriter>) -> PlainText {
+    let mut bus_tx = event_bus_writer.write();
+    let _ = bus_tx
+        .send(rocket_ws::Message::Text("Groumpf!".to_string()))
+        .await;
     PlainText("pong".to_string())
 }
 
 #[get("/ws")]
-pub async fn ws(ws: WebSocket, shared: &State<SharedData>) -> rocket_ws::Channel<'static> {
-    use crate::rocket::futures::StreamExt;
-    use rocket::tokio;
-    use rocket_ws as ws;
-    use std::time::Duration;
+pub async fn ws(
+    ws: WebSocket,
+    event_bus: &State<EventBusSubscriber>,
+    event_bus_writer: &State<EventBusWriter>,
+) -> rocket_ws::Channel<'static> {
+    use rocket::futures::channel::mpsc as rocket_mpsc;
 
-    let (tx, mut rx) = channel::<ws::Message>(1);
-
-    SharedData::add_worker(tx, &shared.workers);
-
-    SharedData::send_to_all(&shared.workers, "I am new !");
-
-    let channel = ws.channel(move |mut stream: ws::stream::DuplexStream| {
-        Box::pin(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(60));
-
-            tokio::spawn(async move {
-                let mut worker = Worker::initial(&mut stream);
-                loop {
-                    tokio::select! {
-                        _ = interval.tick() => {
-                            // Send message every X seconds
-                            if let Ok(true) = worker.tick().await {
-                                break;
-                            }
-                        }
-                        Some(message) = rx.next() => {
-                            println!("Received message from other client: {:?}", message);
-                            let _ = worker.send(message).await;
-                        },
-                        Ok(false) = worker.poll() => {
-                            // Continue the loop
-                        }
-                        else => {
-                            break;
-                        }
-                    }
-                }
-            });
-
-            tokio::signal::ctrl_c().await.unwrap();
-            Ok(())
-        })
-    });
+    let (_, ws_receiver) = rocket_mpsc::channel::<rocket_ws::Message>(1);
+    let bus_rx = event_bus.subscribe();
+    let bus_tx = event_bus_writer.write();
+    let channel: rocket_ws::Channel =
+        ws.channel(|stream| Server::handle(stream, bus_rx, bus_tx, ws_receiver));
 
     channel
 }
@@ -535,8 +507,8 @@ async fn report_counts<'a>(rocket: Rocket<rocket::Build>) -> Rocket<rocket::Buil
     rocket
 }
 
-#[launch]
-fn rocket() -> _ {
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
     let server_address: SocketAddr = if let Ok(env) = env::var("SERVER_ADDRESS") {
         env.parse()
             .expect("The ENV SERVER_ADDRESS should be a valid socket address (address:port)")
@@ -569,18 +541,30 @@ fn rocket() -> _ {
         .merge(("port", server_address.port()))
         .merge(("databases", map!["snow_scanner_db" => db]));
 
-    rocket::custom(config_figment)
+    let mut event_bus = event_bus::EventBus::new();
+    let event_subscriber = event_bus.subscriber();
+    let event_writer = event_bus.writer();
+
+    let _ = rocket::custom(config_figment)
         .attach(SnowDb::init())
         .attach(AdHoc::on_ignite("Report counts", report_counts))
         .attach(AdHoc::on_shutdown("Close Websockets", |r| {
             Box::pin(async move {
-                if let Some(clients) = r.state::<SharedData>() {
-                    SharedData::shutdown_to_all(&clients.workers);
+                if let Some(writer) = r.state::<EventBusWriter>() {
+                    Server::shutdown_to_all(writer);
                 }
             })
         }))
-        .manage(SharedData::init())
+        .attach(AdHoc::on_liftoff("Run websocket client manager", |_| {
+            Box::pin(async move {
+                rocket::tokio::spawn(async move {
+                    event_bus.run().await;
+                });
+            })
+        }))
         .manage(AppConfigs { static_data_dir })
+        .manage(event_subscriber)
+        .manage(event_writer)
         .mount(
             "/",
             routes![
@@ -594,4 +578,7 @@ fn rocket() -> _ {
                 ws,
             ],
         )
+        .launch()
+        .await;
+    Ok(())
 }
