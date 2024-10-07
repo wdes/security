@@ -8,6 +8,8 @@ use dns_ptr_resolver::ResolvedResult;
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::{Name, Resolver};
 
+use crate::worker::ip_addr::is_global_hardcoded;
+
 #[derive(Debug, Clone, Copy, FromSqlRow)]
 pub enum Scanners {
     Stretchoid,
@@ -31,6 +33,14 @@ pub fn get_dns_client() -> Resolver {
     options.attempts = 1; // One try
 
     Resolver::new(config, options).unwrap()
+}
+
+pub fn validate_ip(ip: IpAddr) -> bool {
+    // unspecified => 0.0.0.0
+    if ip.is_loopback() || ip.is_multicast() || ip.is_unspecified() {
+        return false;
+    }
+    return is_global_hardcoded(ip);
 }
 
 pub fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Option<Scanners>, ()> {

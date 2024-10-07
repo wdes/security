@@ -37,7 +37,7 @@ use rocket_db_pools::Database;
 
 use rocket_ws::WebSocket;
 use server::Server;
-use worker::detection::{detect_scanner, get_dns_client, Scanners};
+use worker::detection::{detect_scanner, get_dns_client, validate_ip, Scanners};
 
 use std::{
     env, fmt,
@@ -209,6 +209,10 @@ async fn handle_ip(mut conn: DbConn, ip: String) -> Result<Scanner, Option<Resol
 
     match detect_scanner(&result) {
         Ok(Some(scanner_type)) => {
+            if !validate_ip(query_address) {
+                error!("Invalid IP address: {ip}");
+                return Err(None);
+            }
             match Scanner::find_or_new(query_address, scanner_type, result.result, &mut conn).await
             {
                 Ok(scanner) => Ok(scanner),

@@ -8,6 +8,7 @@ use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Error, Message, WebSocket};
 
 pub mod detection;
+pub mod ip_addr;
 pub mod modules;
 
 use crate::detection::get_dns_client;

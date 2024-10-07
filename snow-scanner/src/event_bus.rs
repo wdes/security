@@ -1,6 +1,9 @@
 use std::{net::IpAddr, str::FromStr};
 
-use crate::{worker::detection::detect_scanner_from_name, DbConnection, SnowDb};
+use crate::{
+    worker::detection::{detect_scanner_from_name, validate_ip},
+    DbConnection, SnowDb,
+};
 use hickory_resolver::Name;
 use rocket::futures::channel::mpsc as rocket_mpsc;
 use rocket::futures::StreamExt;
@@ -49,12 +52,15 @@ impl EventBus {
         }
         match event {
             EventBusWriterEvent::ScannerFoundResponse { name, address } => {
+                let ip: IpAddr = address.into();
+                if !validate_ip(ip) {
+                    error!("Invalid IP address: {ip}");
+                    return;
+                }
                 let name = Name::from_str(name.as_str()).unwrap();
                 match detect_scanner_from_name(&name) {
                     Ok(Some(scanner_type)) => {
-                        match Scanner::find_or_new(address.into(), scanner_type, Some(name), db)
-                            .await
-                        {
+                        match Scanner::find_or_new(ip, scanner_type, Some(name), db).await {
                             Ok(scanner) => {
                                 let _ = scanner.save(db).await;
                             }
