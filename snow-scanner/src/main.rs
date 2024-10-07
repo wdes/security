@@ -294,9 +294,20 @@ async fn handle_scan(
         return MultiReply::FormError(PlainText("Invalid username".to_string()));
     }
 
+    let mut cidrs: Vec<IpCidr> = vec![];
+
+    for line in form.ips.lines() {
+        cidrs.push(match IpCidr::from_str(line.trim()) {
+            Ok(data) => data,
+            Err(err) => {
+                return MultiReply::FormError(PlainText(format!("Invalid value: {line}: {err}")))
+            }
+        });
+    }
+
     let task_group_id: Uuid = Uuid::now_v7();
 
-    for cidr in form.ips.lines() {
+    for cidr in cidrs {
         let scan_task = ScanTask {
             task_group_id: task_group_id.to_string(),
             cidr: cidr.to_string(),
@@ -311,11 +322,10 @@ async fn handle_scan(
         match scan_task.save(&mut db).await {
             Ok(_) => {
                 info!("Added {}", cidr.to_string());
-                let net = IpCidr::from_str(cidr).unwrap();
 
                 let msg = EventBusWriterEvent::BroadcastMessage(
                     WorkerMessages::DoWorkRequest {
-                        neworks: vec![Network(net)],
+                        neworks: vec![Network(cidr)],
                     }
                     .into(),
                 );
@@ -431,8 +441,7 @@ async fn handle_list_scanners(
         path.push(static_data_dir);
         path.push("scanners");
         path.push(match scanner_name {
-            Scanners::Stretchoid |
-            Scanners::Binaryedge => panic!("This should not happen"),
+            Scanners::Stretchoid | Scanners::Binaryedge => panic!("This should not happen"),
             Scanners::Censys => "censys.txt".to_string(),
             Scanners::InternetMeasurement => "internet-measurement.com.txt".to_string(),
         });
