@@ -3,62 +3,10 @@ use rocket_ws::{frame::CloseFrame, Message};
 use std::pin::Pin;
 
 use crate::{
-    event_bus::{EventBusEvent, EventBusWriter},
+    event_bus::{EventBusEvent, EventBusWriter, EventBusWriterEvent},
     worker::modules::WorkerMessages,
 };
 use rocket::futures::channel::mpsc as rocket_mpsc;
-
-pub struct WsChat {}
-
-impl WsChat {
-    pub async fn work(
-        mut stream: rocket_ws::stream::DuplexStream,
-        mut bus_rx: rocket::tokio::sync::broadcast::Receiver<EventBusEvent>,
-        mut bus_tx: rocket_mpsc::Sender<EventBusEvent>,
-        mut ws_receiver: rocket_mpsc::Receiver<rocket_ws::Message>,
-    ) {
-        use crate::rocket::futures::StreamExt;
-        use rocket::tokio;
-
-        let _ = bus_tx.send(rocket_ws::Message::Ping(vec![])).await;
-
-        let mut worker = Worker::initial(&mut stream);
-        let mut interval = rocket::tokio::time::interval(std::time::Duration::from_secs(60));
-        loop {
-            tokio::select! {
-                _ = interval.tick() => {
-                    // Send message every X seconds
-                    if let Ok(true) = worker.tick().await {
-                        break;
-                    }
-                }
-                result = bus_rx.recv() => {
-                    let message = match result {
-                        Ok(message) => message,
-                        Err(err) => {
-                            error!("Bus error: {err}");
-                            continue;
-                        }
-                    };
-                    if let Err(err) = worker.send(message).await {
-                        error!("Error sending event to Event bus WebSocket: {}", err);
-                        break;
-                    }
-                }
-                Some(message) = ws_receiver.next() => {
-                    info!("Received message from other client: {:?}", message);
-                    let _ = worker.send(message).await;
-                },
-                Ok(false) = worker.poll() => {
-                    // Continue the loop
-                }
-                else => {
-                    break;
-                }
-            }
-        }
-    }
-}
 
 pub struct Server {}
 
@@ -70,21 +18,13 @@ impl Server {
     pub fn handle(
         stream: rocket_ws::stream::DuplexStream,
         bus_rx: rocket::tokio::sync::broadcast::Receiver<EventBusEvent>,
-        bus_tx: rocket_mpsc::Sender<EventBusEvent>,
+        bus_tx: rocket_mpsc::Sender<EventBusWriterEvent>,
         ws_receiver: rocket_mpsc::Receiver<rocket_ws::Message>,
     ) -> HandleBox {
         use rocket::tokio;
 
-        //SharedData::add_worker(tx.clone(), &shared.workers);
-        //move |mut stream: ws::stream::DuplexStream| {
         Box::pin(async move {
-            let work_fn = WsChat::work(
-                stream,
-                bus_rx,
-                bus_tx,
-                ws_receiver,
-                //workers
-            );
+            let work_fn = Worker::work(stream, bus_rx, bus_tx, ws_receiver);
             tokio::spawn(work_fn);
 
             tokio::signal::ctrl_c().await.unwrap();
@@ -108,10 +48,14 @@ impl Server {
     }*/
 
     pub fn shutdown_to_all(server: &EventBusWriter) -> () {
-        let res = server.write().try_send(Message::Close(Some(CloseFrame {
-            code: rocket_ws::frame::CloseCode::Away,
-            reason: "Server stop".into(),
-        })));
+        let res = server
+            .write()
+            .try_send(EventBusWriterEvent::BroadcastMessage(Message::Close(Some(
+                CloseFrame {
+                    code: rocket_ws::frame::CloseCode::Away,
+                    reason: "Server stop".into(),
+                },
+            ))));
         match res {
             Ok(_) => {
                 info!("Worker did receive stop signal.");
@@ -148,15 +92,66 @@ pub struct Worker<'a> {
     authenticated: bool,
     login: Option<String>,
     stream: &'a mut rocket_ws::stream::DuplexStream,
+    bus_tx: &'a mut rocket_mpsc::Sender<EventBusWriterEvent>,
 }
 
 impl<'a> Worker<'a> {
-    pub fn initial(stream: &mut rocket_ws::stream::DuplexStream) -> Worker {
+    pub fn initial(
+        stream: &'a mut rocket_ws::stream::DuplexStream,
+        bus_tx: &'a mut rocket_mpsc::Sender<EventBusWriterEvent>,
+    ) -> Worker<'a> {
         info!("New worker");
         Worker {
             authenticated: false,
             login: None,
             stream,
+            bus_tx,
+        }
+    }
+
+    pub async fn work(
+        mut stream: rocket_ws::stream::DuplexStream,
+        mut bus_rx: rocket::tokio::sync::broadcast::Receiver<EventBusEvent>,
+        mut bus_tx: rocket_mpsc::Sender<EventBusWriterEvent>,
+        mut ws_receiver: rocket_mpsc::Receiver<rocket_ws::Message>,
+    ) {
+        use crate::rocket::futures::StreamExt;
+        use rocket::tokio;
+
+        let mut worker = Worker::initial(&mut stream, &mut bus_tx);
+        let mut interval = rocket::tokio::time::interval(std::time::Duration::from_secs(60));
+        loop {
+            tokio::select! {
+                _ = interval.tick() => {
+                    // Send message every X seconds
+                    if let Ok(true) = worker.tick().await {
+                        break;
+                    }
+                }
+                result = bus_rx.recv() => {
+                    let message = match result {
+                        Ok(message) => message,
+                        Err(err) => {
+                            error!("Bus error: {err}");
+                            continue;
+                        }
+                    };
+                    if let Err(err) = worker.send(message).await {
+                        error!("Error sending event to Event bus WebSocket: {}", err);
+                        break;
+                    }
+                }
+                Some(message) = ws_receiver.next() => {
+                    info!("Received message from other client: {:?}", message);
+                    let _ = worker.send(message).await;
+                },
+                Ok(false) = worker.poll() => {
+                    // Continue the loop
+                }
+                else => {
+                    break;
+                }
+            }
         }
     }
 
@@ -272,7 +267,9 @@ impl<'a> Worker<'a> {
             }
             WorkerMessages::ScannerFoundResponse { name, address } => {
                 info!("Detected {name} for {address}");
-                //self.new_scanners.insert(name, address);
+                let _ = self
+                    .bus_tx
+                    .try_send(EventBusWriterEvent::ScannerFoundResponse { name, address });
                 Ok(())
             }
             WorkerMessages::GetWorkRequest {} => {
@@ -282,7 +279,11 @@ impl<'a> Worker<'a> {
             WorkerMessages::DoWorkRequest { .. } | WorkerMessages::Invalid { .. } => {
                 error!("Unable to understand: {msg}");
                 // Unable to understand, close the connection
-                //return ws.close();
+                let close_frame = rocket_ws::frame::CloseFrame {
+                    code: rocket_ws::frame::CloseCode::Unsupported,
+                    reason: "Invalid data received".to_string().into(),
+                };
+                let _ = self.stream.close(Some(close_frame)).await;
                 Err("Unable to understand: {msg}}")
             } /*msg => {
                   error!("No implemented: {:#?}", msg);

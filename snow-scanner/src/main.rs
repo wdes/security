@@ -4,8 +4,15 @@ use chrono::{NaiveDateTime, Utc};
 extern crate rocket;
 
 use cidr::IpCidr;
-use event_bus::{EventBusSubscriber, EventBusWriter};
-use rocket::{fairing::AdHoc, futures::SinkExt, trace::error, Rocket, State};
+use event_bus::{EventBusSubscriber, EventBusWriter, EventBusWriterEvent};
+use rocket::{
+    fairing::AdHoc,
+    futures::SinkExt,
+    http::Status,
+    request::{FromRequest, Outcome, Request},
+    trace::error,
+    Rocket, State,
+};
 use rocket_db_pools::{
     rocket::{
         figment::{
@@ -16,7 +23,7 @@ use rocket_db_pools::{
         fs::NamedFile,
         Responder,
     },
-    Connection,
+    Connection, Pool,
 };
 
 use crate::worker::modules::{Network, WorkerMessages};
@@ -32,7 +39,10 @@ use rocket_ws::WebSocket;
 use server::Server;
 use worker::detection::{detect_scanner, get_dns_client, Scanners};
 
-use std::{env, fmt};
+use std::{
+    env, fmt,
+    ops::{Deref, DerefMut},
+};
 use std::{io::Write, net::SocketAddr};
 use std::{path::PathBuf, str::FromStr};
 use uuid::Uuid;
@@ -49,11 +59,43 @@ pub mod worker;
 
 use crate::models::*;
 
-#[derive(Database)]
+#[derive(Database, Clone)]
 #[database("snow_scanner_db")]
 pub struct SnowDb(MysqlPool);
 
-type DbConn = Connection<SnowDb>;
+pub type ReqDbConn = Connection<SnowDb>;
+pub type DbConn = DbConnection<SnowDb>;
+
+#[rocket::async_trait]
+impl<'r, D: Database> FromRequest<'r> for DbConnection<D> {
+    type Error = Option<<D::Pool as Pool>::Error>;
+
+    async fn from_request(req: &'r Request<'_>) -> Outcome<Self, Self::Error> {
+        match D::fetch(req.rocket()) {
+            Some(db) => match db.get().await {
+                Ok(conn) => Outcome::Success(DbConnection(conn)),
+                Err(e) => Outcome::Error((Status::ServiceUnavailable, Some(e))),
+            },
+            None => Outcome::Error((Status::InternalServerError, None)),
+        }
+    }
+}
+
+pub struct DbConnection<D: Database>(pub <D::Pool as Pool>::Connection);
+
+impl<D: Database> Deref for DbConnection<D> {
+    type Target = <D::Pool as Pool>::Connection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<D: Database> DerefMut for DbConnection<D> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
 
 trait IsStatic {
     fn is_static(self: &Self) -> bool;
@@ -251,10 +293,12 @@ async fn handle_scan(
                 info!("Added {}", cidr.to_string());
                 let net = IpCidr::from_str(cidr).unwrap();
 
-                let msg = WorkerMessages::DoWorkRequest {
-                    neworks: vec![Network(net)],
-                }
-                .into();
+                let msg = EventBusWriterEvent::BroadcastMessage(
+                    WorkerMessages::DoWorkRequest {
+                        neworks: vec![Network(net)],
+                    }
+                    .into(),
+                );
 
                 let _ = bus_tx.send(msg).await;
             }
@@ -425,7 +469,7 @@ static SCAN_TASKS_FOOT: &str = r#"
 "#;
 
 #[get("/scan/tasks")]
-async fn handle_list_scan_tasks(mut db: Connection<SnowDb>) -> MultiReply {
+async fn handle_list_scan_tasks(mut db: DbConn) -> MultiReply {
     let mut html_data: Vec<String> = vec![SCAN_TASKS_HEAD.to_string()];
 
     let scan_tasks_list = match ScanTask::list(&mut db).await {
@@ -504,19 +548,19 @@ struct AppConfigs {
 }
 
 async fn report_counts<'a>(rocket: Rocket<rocket::Build>) -> Rocket<rocket::Build> {
-    use rocket_db_pools::diesel::AsyncConnectionWrapper;
-
     let conn = SnowDb::fetch(&rocket)
-        .expect("database is attached")
+        .expect("Failed to get DB connection")
+        .clone()
         .get()
         .await
         .unwrap_or_else(|e| {
             span_error!("failed to connect to MySQL database" => error!("{e}"));
             panic!("aborting launch");
         });
-
-    let _: AsyncConnectionWrapper<_> = conn.into();
-    info!("Connected to the DB");
+    match Scanner::list_names(Scanners::Stretchoid, &mut DbConnection(conn)).await {
+        Ok(d) => info!("Found {} Stretchoid scanners", d.len()),
+        Err(err) => error!("Unable to fetch Stretchoid scanners: {err}"),
+    }
 
     rocket
 }
@@ -569,13 +613,25 @@ async fn main() -> Result<(), rocket::Error> {
                 }
             })
         }))
-        .attach(AdHoc::on_liftoff("Run websocket client manager", |_| {
-            Box::pin(async move {
-                rocket::tokio::spawn(async move {
-                    event_bus.run().await;
-                });
-            })
-        }))
+        .attach(AdHoc::on_liftoff(
+            "Run websocket client manager",
+            move |r| {
+                Box::pin(async move {
+                    let conn = SnowDb::fetch(r)
+                        .expect("Failed to get DB connection")
+                        .clone()
+                        .get()
+                        .await
+                        .unwrap_or_else(|e| {
+                            span_error!("failed to connect to MySQL database" => error!("{e}"));
+                            panic!("aborting launch");
+                        });
+                    rocket::tokio::spawn(async move {
+                        event_bus.run(DbConnection(conn)).await;
+                    });
+                })
+            },
+        ))
         .manage(AppConfigs { static_data_dir })
         .manage(event_subscriber)
         .manage(event_writer)

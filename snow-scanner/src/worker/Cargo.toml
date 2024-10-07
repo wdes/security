@@ -3,7 +3,7 @@ name = "snow-scanner-worker"
 version = "0.1.0"
 authors = ["William Desportes <williamdes@wdes.fr>"]
 edition = "2021"
-rust-version = "1.78.0"  # MSRV
+rust-version = "1.81.0"  # MSRV
 description = "The CLI to run a snow-scanner worker"
 
 [[bin]]

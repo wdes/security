@@ -1,11 +1,17 @@
+use std::{net::IpAddr, str::FromStr};
+
+use crate::{worker::detection::detect_scanner_from_name, DbConnection, SnowDb};
+use hickory_resolver::Name;
 use rocket::futures::channel::mpsc as rocket_mpsc;
 use rocket::futures::StreamExt;
 use rocket::tokio;
 
+use crate::Scanner;
+
 /// Handles all the raw events being streamed from balancers and parses and filters them into only the events we care about.
 pub struct EventBus {
-    events_rx: rocket_mpsc::Receiver<rocket_ws::Message>,
-    events_tx: rocket_mpsc::Sender<rocket_ws::Message>,
+    events_rx: rocket_mpsc::Receiver<EventBusWriterEvent>,
+    events_tx: rocket_mpsc::Sender<EventBusWriterEvent>,
     bus_tx: tokio::sync::broadcast::Sender<EventBusEvent>,
 }
 
@@ -20,13 +26,13 @@ impl EventBus {
         }
     }
 
-    pub async fn run(&mut self) {
+    // db: &Connection<SnowDb>
+    pub async fn run(&mut self, mut conn: DbConnection<SnowDb>) {
         info!("EventBus started");
         loop {
             tokio::select! {
                 Some(event) = self.events_rx.next() => {
-                    info!("EventBus received: {event}");
-                    self.handle_event(event);
+                    self.handle_event(event, &mut conn).await;
                 }
                 else => {
                     warn!("EventBus stopped");
@@ -36,18 +42,44 @@ impl EventBus {
         }
     }
 
-    fn handle_event(&self, event: rocket_ws::Message) {
-        info!("Received event: {}", event);
+    async fn handle_event(&self, event: EventBusWriterEvent, db: &mut DbConnection<SnowDb>) {
+        info!("Received event");
         if self.bus_tx.receiver_count() == 0 {
             return;
         }
-        match self.bus_tx.send(event) {
-            Ok(count) => {
-                info!("Event sent to {count} subscribers");
+        match event {
+            EventBusWriterEvent::ScannerFoundResponse { name, address } => {
+                let name = Name::from_str(name.as_str()).unwrap();
+                match detect_scanner_from_name(&name) {
+                    Ok(Some(scanner_type)) => {
+                        match Scanner::find_or_new(address.into(), scanner_type, Some(name), db)
+                            .await
+                        {
+                            Ok(scanner) => {
+                                let _ = scanner.save(db).await;
+                            }
+                            Err(err) => {
+                                error!("Error find or save: {:?}", err);
+                            }
+                        }
+                    }
+                    Ok(None) => {
+                        error!("No name detected for: {:?}", name);
+                    }
+
+                    Err(err) => {
+                        error!("No name detected error: {:?}", err);
+                    }
+                };
             }
-            Err(err) => {
-                error!("Error sending event to subscribers: {}", err);
-            }
+            EventBusWriterEvent::BroadcastMessage(msg) => match self.bus_tx.send(msg) {
+                Ok(count) => {
+                    info!("Event sent to {count} subscribers");
+                }
+                Err(err) => {
+                    error!("Error sending event to subscribers: {}", err);
+                }
+            },
         }
     }
 
@@ -69,15 +101,20 @@ pub struct EventBusSubscriber {
 
 /// Enables subscriptions to the event bus
 pub struct EventBusWriter {
-    bus_tx: rocket_mpsc::Sender<EventBusEvent>,
+    bus_tx: rocket_mpsc::Sender<EventBusWriterEvent>,
+}
+
+pub enum EventBusWriterEvent {
+    BroadcastMessage(rocket_ws::Message),
+    ScannerFoundResponse { name: String, address: IpAddr },
 }
 
 impl EventBusWriter {
-    pub fn new(bus_tx: rocket_mpsc::Sender<EventBusEvent>) -> Self {
+    pub fn new(bus_tx: rocket_mpsc::Sender<EventBusWriterEvent>) -> Self {
         Self { bus_tx }
     }
 
-    pub fn write(&self) -> rocket_mpsc::Sender<EventBusEvent> {
+    pub fn write(&self) -> rocket_mpsc::Sender<EventBusWriterEvent> {
         self.bus_tx.clone()
     }
 }
