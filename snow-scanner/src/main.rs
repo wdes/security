@@ -430,7 +430,12 @@ async fn handle_list_scanners(
         let mut path: PathBuf = PathBuf::new();
         path.push(static_data_dir);
         path.push("scanners");
-        path.push(scanner_name.to_string());
+        path.push(match scanner_name {
+            Scanners::Stretchoid |
+            Scanners::Binaryedge => panic!("This should not happen"),
+            Scanners::Censys => "censys.txt".to_string(),
+            Scanners::InternetMeasurement => "internet-measurement.com.txt".to_string(),
+        });
 
         return match NamedFile::open(path).await {
             Ok(file) => MultiReply::FileContents(file),
