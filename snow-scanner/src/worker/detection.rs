@@ -2,7 +2,7 @@ use std::net::IpAddr;
 use std::str::FromStr;
 use std::time::Duration;
 
-use diesel::deserialize::FromSqlRow;
+use crate::scanners::Scanners;
 use dns_ptr_resolver::ResolvedResult;
 
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
@@ -10,25 +10,15 @@ use hickory_resolver::{Name, Resolver};
 
 use crate::ip_addr::is_global_hardcoded;
 
-#[derive(Debug, Clone, Copy, FromSqlRow, PartialEq)]
-pub enum Scanners {
-    Stretchoid,
-    Binaryedge,
-    Shadowserver,
-    Censys,
-    InternetMeasurement,
+pub fn get_dns_server_config(server_ips: &Vec<IpAddr>) -> NameServerConfigGroup {
+    NameServerConfigGroup::from_ips_clear(
+        server_ips, 53, // Port 53
+        true,
+    )
 }
 
-pub fn get_dns_client() -> Resolver {
-    let server_ip = "1.1.1.1";
-
-    let server = NameServerConfigGroup::from_ips_clear(
-        &[IpAddr::from_str(server_ip).unwrap()],
-        53, // Port 53
-        true,
-    );
-
-    let config = ResolverConfig::from_parts(None, vec![], server);
+pub fn get_dns_client(server: &NameServerConfigGroup) -> Resolver {
+    let config = ResolverConfig::from_parts(None, vec![], server.clone());
     let mut options = ResolverOpts::default();
     options.timeout = Duration::from_secs(5);
     options.attempts = 1; // One try

@@ -1,18 +1,24 @@
 use std::{env, net::IpAddr};
 
 use chrono::{Duration, NaiveDateTime, Utc};
+use cidr::IpCidr;
 use detection::detect_scanner;
-use dns_ptr_resolver::get_ptr;
+use dns_ptr_resolver::{get_ptr, ResolvedResult};
 use log2::*;
+use scanners::Scanners;
 use tungstenite::stream::MaybeTlsStream;
 use tungstenite::{connect, Error, Message, WebSocket};
+use weighted_rs::Weight;
 
 pub mod detection;
 pub mod ip_addr;
 pub mod modules;
+pub mod scanners;
+pub mod utils;
 
-use crate::detection::get_dns_client;
+use crate::detection::{get_dns_client, get_dns_server_config};
 use crate::modules::WorkerMessages;
+use crate::utils::get_dns_rr;
 
 #[derive(Debug, Clone)]
 pub struct IpToResolve {
@@ -143,44 +149,57 @@ impl Worker {
         self
     }
 
+    fn work_on_cidr(&mut self, cidr: IpCidr) {
+        info!("Picking up: {cidr}");
+        info!("Range, from {} to {}", cidr.first(), cidr.last());
+        let addresses = cidr.iter().addresses();
+        let count = addresses.count();
+        let mut current = 0;
+        let mut rr_dns_servers = get_dns_rr();
+
+        for addr in addresses {
+            let client = get_dns_client(&get_dns_server_config(&rr_dns_servers.next().unwrap()));
+            match get_ptr(addr, client) {
+                Ok(result) => match detect_scanner(&result) {
+                    Ok(Some(scanner_name)) => {
+                        self.report_detection(scanner_name, addr, result);
+                    }
+                    Ok(None) => {}
+
+                    Err(err) => error!("Error detecting for {addr}: {:?}", err),
+                },
+                Err(_) => {
+                    //debug!("Error processing {addr}: {err}")
+                }
+            };
+
+            current += 1;
+            if current % 10 == 0 {
+                info!("Progress: {count}/{current}");
+            }
+        }
+    }
+
+    fn report_detection(&mut self, scanner_name: Scanners, addr: IpAddr, result: ResolvedResult) {
+        info!("Detected {:?} for {addr}", scanner_name);
+        let request = WorkerMessages::ScannerFoundResponse {
+            name: result.result.unwrap().to_string(),
+            address: addr,
+        };
+        let msg_string: String = request.to_string();
+        match self.ws.send(Message::Text(msg_string)) {
+            Ok(_) => {}
+            Err(err) => error!("Unable to send scanner result: {err}"),
+        }
+    }
+
     pub fn receive_request(&mut self, server_request: WorkerMessages) -> &Worker {
         match server_request {
             WorkerMessages::DoWorkRequest { neworks } => {
-                info!("Should work on: {:?}", neworks);
+                info!("Work request received for neworks: {:?}", neworks);
                 for cidr in neworks {
                     let cidr = cidr.0;
-                    info!("Picking up: {cidr}");
-                    info!("Range, from {} to {}", cidr.first(), cidr.last());
-                    let addresses = cidr.iter().addresses();
-                    let count = addresses.count();
-                    let mut current = 0;
-                    for addr in addresses {
-                        let client = get_dns_client();
-                        match get_ptr(addr, client) {
-                            Ok(result) => match detect_scanner(&result) {
-                                Ok(Some(scanner_name)) => {
-                                    info!("Detected {:?} for {addr}", scanner_name);
-                                    let request = WorkerMessages::ScannerFoundResponse {
-                                        name: result.result.unwrap().to_string(),
-                                        address: addr,
-                                    };
-                                    let msg_string: String = request.to_string();
-                                    match self.ws.send(Message::Text(msg_string)) {
-                                        Ok(_) => {}
-                                        Err(err) => error!("Unable to send scanner result: {err}"),
-                                    }
-                                }
-                                Ok(None) => {}
-
-                                Err(err) => error!("Error detecting for {addr}: {:?}", err),
-                            },
-                            Err(_) => {
-                                //debug!("Error processing {addr}: {err}")
-                            }
-                        };
-
-                        current += 1;
-                    }
+                    self.work_on_cidr(cidr);
                 }
             }
             WorkerMessages::AuthenticateRequest { .. }
@@ -193,6 +212,68 @@ impl Worker {
         self
     }
 }
+
+/*fn resolve_file(addresses: InetAddressIterator<IpAddr>, dns_servers: Vec<&str>) {
+
+
+    let mut ips = vec![];
+    for address in addresses {
+        match IpAddr::from_str(address) {
+            Ok(addr) => ips.push(IpToResolve {
+                address: addr,
+                server: rr.next().unwrap(),
+            }),
+            Err(err) => {
+                eprintln!(
+                    "Something went wrong while parsing the IP ({}): {}",
+                    address, err
+                );
+                process::exit(1);
+            }
+        }
+    }
+
+    match rayon::ThreadPoolBuilder::new()
+        .num_threads(30)
+        .build_global()
+    {
+        Ok(r) => r,
+        Err(err) => {
+            eprintln!(
+                "Something went wrong while building the thread pool: {}",
+                err
+            );
+            process::exit(1);
+        }
+    }
+
+    ips.into_par_iter()
+        .enumerate()
+        .for_each(|(_i, to_resolve)| {
+            let server = NameServerConfigGroup::from_ips_clear(
+                &[to_resolve.server.ip()],
+                to_resolve.server.port(),
+                true,
+            );
+
+            let ptr_result = get_ptr(to_resolve.address, resolver);
+            match ptr_result {
+                Ok(ptr) => match ptr.result {
+                    Some(res) => println!("{} # {}", to_resolve.address, res),
+                    None => println!("{}", to_resolve.address),
+                },
+                Err(err) => {
+                    let two_hundred_millis = Duration::from_millis(400);
+                    thread::sleep(two_hundred_millis);
+
+                    eprintln!(
+                        "[{}] Error for {} -> {}",
+                        to_resolve.server, to_resolve.address, err.message
+                    )
+                }
+            }
+        });
+}*/
 
 fn main() -> () {
     let _log2 = log2::stdout()

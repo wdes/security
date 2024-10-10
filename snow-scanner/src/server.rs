@@ -2,11 +2,9 @@ use rocket::futures::{stream::Next, SinkExt, StreamExt};
 use rocket_ws::{frame::CloseFrame, Message};
 use std::pin::Pin;
 
-use crate::{
-    event_bus::{EventBusEvent, EventBusWriter, EventBusWriterEvent},
-    worker::modules::WorkerMessages,
-};
+use crate::event_bus::{EventBusEvent, EventBusWriter, EventBusWriterEvent};
 use rocket::futures::channel::mpsc as rocket_mpsc;
+use snow_scanner_worker::modules::WorkerMessages;
 
 pub struct Server {}
 

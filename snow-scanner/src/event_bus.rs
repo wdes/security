@@ -1,13 +1,12 @@
 use std::{net::IpAddr, str::FromStr};
 
-use crate::{
-    worker::detection::{detect_scanner_from_name, validate_ip},
-    DbConnection, SnowDb,
-};
+use crate::{DbConnection, SnowDb};
+
 use hickory_resolver::Name;
 use rocket::futures::channel::mpsc as rocket_mpsc;
 use rocket::futures::StreamExt;
 use rocket::tokio;
+use snow_scanner_worker::detection::{detect_scanner_from_name, validate_ip};
 
 use crate::Scanner;
 
