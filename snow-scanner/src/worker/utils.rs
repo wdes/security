@@ -14,10 +14,8 @@ pub fn get_dns_rr() -> RoundrobinWeight<Vec<IpAddr>> {
         IpAddr::from_str("8.8.4.4").unwrap(),
         IpAddr::from_str("9.9.9.9").unwrap(),
         IpAddr::from_str("9.9.9.10").unwrap(),
-        IpAddr::from_str("208.67.222.222").unwrap(), // OpenDNS	Cisco
-        IpAddr::from_str("208.67.220.220").unwrap(), // OpenDNS	Cisco
-        IpAddr::from_str("208.67.222.220").unwrap(), // OpenDNS	Cisco
-        IpAddr::from_str("208.67.220.222").unwrap(), // OpenDNS	Cisco
+        IpAddr::from_str("2.56.220.2").unwrap(), // G-Core DNS
+        IpAddr::from_str("95.85.95.85").unwrap(), // G-Core DNS
         IpAddr::from_str("193.110.81.0").unwrap(),   // dns0.eu	AS50902
         IpAddr::from_str("185.253.5.0").unwrap(),    // dns0.eu	AS50902
         IpAddr::from_str("74.82.42.42").unwrap(),    // Hurricane Electric	[AS6939]
