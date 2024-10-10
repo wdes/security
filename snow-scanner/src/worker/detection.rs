@@ -8,7 +8,7 @@ use dns_ptr_resolver::ResolvedResult;
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::{Name, Resolver};
 
-use crate::worker::ip_addr::is_global_hardcoded;
+use crate::ip_addr::is_global_hardcoded;
 
 #[derive(Debug, Clone, Copy, FromSqlRow, PartialEq)]
 pub enum Scanners {
