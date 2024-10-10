@@ -6,6 +6,7 @@
 
 - `https://security.wdes.eu/scanners/stretchoid.txt` (List of all known stretchoid IPs)
 - `https://security.wdes.eu/scanners/binaryedge.txt` (List of all known binaryedge IPs)
+- `https://security.wdes.eu/scanners/shadowserver.txt` (List of all known shadowserver IPs)
 - `https://security.wdes.eu/scanners/censys.txt` (List of all IPs declared by censys scanner on their [FAQ](https://support.censys.io/hc/en-us/articles/360043177092-Opt-Out-of-Data-Collection)
 - `https://security.wdes.eu/scanners/internet-measurement.com.txt` (List of all IPs declared by internet-measurement.com on [their website](https://internet-measurement.com/#ips))
 

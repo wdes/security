@@ -118,8 +118,10 @@ impl FromParam<'_> for Scanners {
         match param {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
+            "shadowserver" => Ok(Scanners::Shadowserver),
             "stretchoid.txt" => Ok(Scanners::Stretchoid),
             "binaryedge.txt" => Ok(Scanners::Binaryedge),
+            "shadowserver.txt" => Ok(Scanners::Shadowserver),
             "censys.txt" => Ok(Scanners::Censys),
             "internet-measurement.com.txt" => Ok(Scanners::InternetMeasurement),
             v => Err(format!("Unknown value: {v}")),
@@ -137,8 +139,10 @@ impl<'de> Deserialize<'de> for Scanners {
         match k {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
+            "shadowserver" => Ok(Scanners::Shadowserver),
             "stretchoid.txt" => Ok(Scanners::Stretchoid),
             "binaryedge.txt" => Ok(Scanners::Binaryedge),
+            "shadowserver.txt" => Ok(Scanners::Shadowserver),
             "censys.txt" => Ok(Scanners::Censys),
             "internet-measurement.com.txt" => Ok(Scanners::InternetMeasurement),
             v => Err(serde::de::Error::custom(format!(
@@ -159,6 +163,7 @@ impl fmt::Display for Scanners {
                 Self::Binaryedge => "binaryedge",
                 Self::Censys => "censys",
                 Self::InternetMeasurement => "internet-measurement.com",
+                Self::Shadowserver => "shadowserver.txt",
             }
         )
     }
@@ -171,6 +176,7 @@ impl serialize::ToSql<Text, Mysql> for Scanners {
             Self::Binaryedge => out.write_all(b"binaryedge")?,
             Self::Censys => out.write_all(b"censys")?,
             Self::InternetMeasurement => out.write_all(b"internet-measurement.com")?,
+            Self::Shadowserver => out.write_all(b"shadowserver.txt")?,
         };
 
         Ok(IsNull::No)
@@ -441,7 +447,7 @@ async fn handle_list_scanners(
         path.push(static_data_dir);
         path.push("scanners");
         path.push(match scanner_name {
-            Scanners::Stretchoid | Scanners::Binaryedge => panic!("This should not happen"),
+            Scanners::Stretchoid | Scanners::Binaryedge | Scanners::Shadowserver => panic!("This should not happen"),
             Scanners::Censys => "censys.txt".to_string(),
             Scanners::InternetMeasurement => "internet-measurement.com.txt".to_string(),
         });

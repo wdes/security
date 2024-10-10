@@ -14,6 +14,7 @@ use crate::worker::ip_addr::is_global_hardcoded;
 pub enum Scanners {
     Stretchoid,
     Binaryedge,
+    Shadowserver,
     Censys,
     InternetMeasurement,
 }
@@ -65,6 +66,13 @@ pub fn detect_scanner_from_name(name: &Name) -> Result<Option<Scanners>, ()> {
                 .eq_case(&Name::from_str("stretchoid.com.").expect("Should parse")) =>
         {
             Ok(Some(Scanners::Stretchoid))
+        }
+        ref name
+            if name
+                .trim_to(2)
+                .eq_case(&Name::from_str("shadowserver.org.").expect("Should parse")) =>
+        {
+            Ok(Some(Scanners::Shadowserver))
         }
         &_ => Ok(None),
     }
