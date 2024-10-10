@@ -28,12 +28,12 @@ impl Scanner {
         scanner_name: Scanners,
         ptr: Option<Name>,
         conn: &mut DbConn,
-    ) -> Result<Scanner, ()> {
+    ) -> Result<Scanner, DieselError> {
         let ip_type = if query_address.is_ipv6() { 6 } else { 4 };
         let scanner_row_result = Scanner::find(query_address.to_string(), ip_type, conn).await;
         let scanner_row = match scanner_row_result {
             Ok(scanner_row) => scanner_row,
-            Err(_) => return Err(()),
+            Err(err) => return Err(err),
         };
 
         let scanner = if let Some(mut scanner) = scanner_row {
@@ -58,7 +58,7 @@ impl Scanner {
         };
         match scanner.save(conn).await {
             Ok(scanner) => Ok(scanner),
-            Err(_) => Err(()),
+            Err(err) => Err(err),
         }
     }
 

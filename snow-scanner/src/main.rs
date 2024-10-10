@@ -7,6 +7,7 @@ use cidr::IpCidr;
 use event_bus::{EventBusSubscriber, EventBusWriter, EventBusWriterEvent};
 use rocket::{
     fairing::AdHoc,
+    form::FromFormField,
     futures::SinkExt,
     http::Status,
     request::{FromParam, FromRequest, Outcome, Request},
@@ -41,6 +42,7 @@ use worker::detection::{detect_scanner, get_dns_client, validate_ip, Scanners};
 
 use std::{
     env, fmt,
+    net::IpAddr,
     ops::{Deref, DerefMut},
 };
 use std::{io::Write, net::SocketAddr};
@@ -111,6 +113,30 @@ impl IsStatic for Scanners {
     }
 }
 
+#[derive(serde::Deserialize, Clone)]
+struct SafeIpAddr {
+    pub addr: IpAddr,
+}
+
+impl FromFormField<'_> for SafeIpAddr {
+    fn from_value(field: rocket::form::ValueField<'_>) -> rocket::form::Result<'_, Self> {
+        let ip = field.value;
+        let query_address = IpAddr::from_str(ip);
+        match query_address {
+            Ok(ip) => {
+                if !validate_ip(ip) {
+                    return Err(rocket::form::Error::validation(format!(
+                        "Invalid IP address: {ip}"
+                    ))
+                    .into());
+                }
+                Ok(SafeIpAddr { addr: ip })
+            }
+            Err(err) => Err(rocket::form::Error::validation(format!("Invalid IP: {err}")).into()),
+        }
+    }
+}
+
 impl FromParam<'_> for Scanners {
     type Error = String;
 
@@ -163,7 +189,7 @@ impl fmt::Display for Scanners {
                 Self::Binaryedge => "binaryedge",
                 Self::Censys => "censys",
                 Self::InternetMeasurement => "internet-measurement.com",
-                Self::Shadowserver => "shadowserver.txt",
+                Self::Shadowserver => "shadowserver",
             }
         )
     }
@@ -176,7 +202,7 @@ impl serialize::ToSql<Text, Mysql> for Scanners {
             Self::Binaryedge => out.write_all(b"binaryedge")?,
             Self::Censys => out.write_all(b"censys")?,
             Self::InternetMeasurement => out.write_all(b"internet-measurement.com")?,
-            Self::Shadowserver => out.write_all(b"shadowserver.txt")?,
+            Self::Shadowserver => out.write_all(b"shadowserver")?,
         };
 
         Ok(IsNull::No)
@@ -203,14 +229,15 @@ impl TryInto<Scanners> for &str {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
             "internet-measurement.com" => Ok(Scanners::InternetMeasurement),
+            "shadowserver" => Ok(Scanners::Shadowserver),
             value => Err(format!("Invalid value: {value}")),
         }
     }
 }
 
-async fn handle_ip(mut conn: DbConn, ip: String) -> Result<Scanner, Option<ResolvedResult>> {
-    let query_address = ip.parse().expect("To parse");
-
+async fn handle_ip(
+    query_address: IpAddr,
+) -> Result<(IpAddr, Option<Scanners>, ResolvedResult), ()> {
     let ptr_result: Result<ResolvedResult, ()> = std::thread::spawn(move || {
         let client = get_dns_client();
         let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
@@ -223,27 +250,19 @@ async fn handle_ip(mut conn: DbConn, ip: String) -> Result<Scanner, Option<Resol
     .join()
     .unwrap();
 
-    if ptr_result.is_err() {
-        return Err(None);
-    }
-
-    let result = ptr_result.unwrap();
-
-    match detect_scanner(&result) {
-        Ok(Some(scanner_type)) => {
-            if !validate_ip(query_address) {
-                error!("Invalid IP address: {ip}");
-                return Err(None);
+    match ptr_result {
+        Ok(result) => match detect_scanner(&result) {
+            Ok(Some(scanner_type)) => {
+                if !validate_ip(query_address) {
+                    error!("Invalid IP address: {query_address}");
+                    return Err(());
+                }
+                Ok((query_address, Some(scanner_type), result))
             }
-            match Scanner::find_or_new(query_address, scanner_type, result.result, &mut conn).await
-            {
-                Ok(scanner) => Ok(scanner),
-                Err(_) => Err(None),
-            }
-        }
-        Ok(None) => Err(None),
-
-        Err(_) => Err(Some(result)),
+            Ok(None) => Ok((query_address, None, result)),
+            Err(err) => Err(err),
+        },
+        Err(err) => Err(err),
     }
 }
 
@@ -282,10 +301,14 @@ enum MultiReply {
     Error(ServerError),
     #[response(status = 422)]
     FormError(PlainText),
+    #[response(status = 422)]
+    HtmlFormError(HtmlContents),
     #[response(status = 404)]
     NotFound(String),
     #[response(status = 200)]
     Content(HtmlContents),
+    #[response(status = 200)]
+    TextContent(PlainText),
     #[response(status = 200)]
     FileContents(NamedFile),
 }
@@ -345,50 +368,89 @@ async fn handle_scan(
     MultiReply::Content(HtmlContents(format!("New task added: {} !", task_group_id)))
 }
 
-#[derive(FromForm, Serialize, Deserialize)]
+#[derive(FromForm, Deserialize)]
 pub struct ReportParams {
-    ip: String,
+    ip: SafeIpAddr,
+}
+
+fn reply_contents_for_scanner_found(scanner: Scanner) -> HtmlContents {
+    HtmlContents(match scanner.scanner_name {
+        Scanners::Binaryedge => match scanner.last_checked_at {
+            Some(date) => format!(
+                "Reported a binaryedge ninja! <b>{}</b> known as {} since {date}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+            None => format!(
+                "Reported a binaryedge ninja! <b>{}</b> known as {}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+        },
+        Scanners::Stretchoid => match scanner.last_checked_at {
+            Some(date) => format!(
+                "Reported a stretchoid agent! <b>{}</b> known as {} since {date}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+            None => format!(
+                "Reported a stretchoid agent! <b>{}</b> known as {}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+        },
+        Scanners::Shadowserver => match scanner.last_checked_at {
+            Some(date) => format!(
+                "Reported a cloudy shadowserver ! <b>{}</b> known as {} since {date}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+            None => format!(
+                "Reported a cloudy shadowserver ! <b>{}</b> known as {}.",
+                scanner.ip,
+                scanner.ip_ptr.unwrap_or("".to_string())
+            ),
+        },
+        _ => format!("Not supported"),
+    })
 }
 
 #[post("/report", data = "<form>")]
-async fn handle_report(db: DbConn, form: Form<ReportParams>) -> HtmlContents {
-    match handle_ip(db, form.ip.clone()).await {
-        Ok(scanner) => HtmlContents(match scanner.scanner_name {
-            Scanners::Binaryedge => match scanner.last_checked_at {
-                Some(date) => format!(
-                    "Reported a binaryedge ninja! <b>{}</b> known as {} since {date}.",
-                    scanner.ip,
-                    scanner.ip_ptr.unwrap_or("".to_string())
-                ),
-                None => format!(
-                    "Reported a binaryedge ninja! <b>{}</b> known as {}.",
-                    scanner.ip,
-                    scanner.ip_ptr.unwrap_or("".to_string())
-                ),
+async fn handle_report(mut db: DbConn, form: Form<ReportParams>) -> MultiReply {
+    match handle_ip(form.ip.addr).await {
+        Ok((query_address, scanner_type, result)) => match scanner_type {
+            Some(scanner_type) => match Scanner::find_or_new(
+                query_address,
+                scanner_type,
+                result.result.clone(),
+                &mut db,
+            )
+            .await
+            {
+                Ok(scanner) => MultiReply::Content(reply_contents_for_scanner_found(scanner)),
+                Err(err) => MultiReply::Error(ServerError(format!(
+                    "The IP {} resolved as {} could not be saved, server error: {err}.",
+                    form.ip.addr,
+                    match result.result {
+                        Some(res) => res.to_string(),
+                        None => "No value".to_string(),
+                    }
+                ))),
             },
-            Scanners::Stretchoid => match scanner.last_checked_at {
-                Some(date) => format!(
-                    "Reported a stretchoid agent! <b>{}</b> known as {} since {date}.",
-                    scanner.ip,
-                    scanner.ip_ptr.unwrap_or("".to_string())
-                ),
-                None => format!(
-                    "Reported a stretchoid agent! <b>{}</b> known as {}.",
-                    scanner.ip,
-                    scanner.ip_ptr.unwrap_or("".to_string())
-                ),
-            },
-            _ => format!("Not supported"),
-        }),
+            None => MultiReply::HtmlFormError(HtmlContents(format!(
+                "The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.",
+                form.ip.addr,
+                match result.result {
+                    Some(res) => res.to_string(),
+                    None => "No value".to_string(),
+                }
+            ))),
+        },
 
-        Err(ptr_result) => HtmlContents(format!(
-            "The IP <b>{}</a> resolved as {:?} did not match known scanners patterns.",
-            form.ip,
-            match ptr_result {
-                Some(res) => res.result,
-                None => None,
-            }
-        )),
+        Err(_) => MultiReply::Error(ServerError(format!(
+            "The IP <b>{}</a> did encounter en error at resolve time.",
+            form.ip.addr
+        ))),
     }
 }
 
@@ -447,7 +509,9 @@ async fn handle_list_scanners(
         path.push(static_data_dir);
         path.push("scanners");
         path.push(match scanner_name {
-            Scanners::Stretchoid | Scanners::Binaryedge | Scanners::Shadowserver => panic!("This should not happen"),
+            Scanners::Stretchoid | Scanners::Binaryedge | Scanners::Shadowserver => {
+                panic!("This should not happen")
+            }
             Scanners::Censys => "censys.txt".to_string(),
             Scanners::InternetMeasurement => "internet-measurement.com.txt".to_string(),
         });
@@ -464,7 +528,7 @@ async fn handle_list_scanners(
     };
 
     if let Ok(scanners) = scanners_list {
-        MultiReply::Content(HtmlContents(scanners.join("\n")))
+        MultiReply::TextContent(PlainText(scanners.join("\n")))
     } else {
         MultiReply::Error(ServerError("Unable to list scanners".to_string()))
     }
@@ -678,4 +742,36 @@ async fn main() -> Result<(), rocket::Error> {
         .launch()
         .await;
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use hickory_resolver::{
+        config::{NameServerConfigGroup, ResolverConfig, ResolverOpts},
+        Name, Resolver,
+    };
+    use std::time::Duration;
+
+    #[test]
+    fn test_get_ptr() {
+        let server = NameServerConfigGroup::google();
+        let config = ResolverConfig::from_parts(None, vec![], server);
+        let mut options = ResolverOpts::default();
+        options.timeout = Duration::from_secs(5);
+        options.attempts = 1; // One try
+
+        let resolver = Resolver::new(config, options).unwrap();
+
+        let query_address = "8.8.8.8".parse().expect("To parse");
+
+        assert_eq!(
+            get_ptr(query_address, resolver).unwrap(),
+            ResolvedResult {
+                query: Name::from_str_relaxed("8.8.8.8.in-addr.arpa.").unwrap(),
+                result: Some(Name::from_str_relaxed("dns.google.").unwrap()),
+                error: None,
+            }
+        );
+    }
 }

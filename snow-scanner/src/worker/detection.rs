@@ -10,7 +10,7 @@ use hickory_resolver::{Name, Resolver};
 
 use crate::worker::ip_addr::is_global_hardcoded;
 
-#[derive(Debug, Clone, Copy, FromSqlRow)]
+#[derive(Debug, Clone, Copy, FromSqlRow, PartialEq)]
 pub enum Scanners {
     Stretchoid,
     Binaryedge,
@@ -75,5 +75,36 @@ pub fn detect_scanner_from_name(name: &Name) -> Result<Option<Scanners>, ()> {
             Ok(Some(Scanners::Shadowserver))
         }
         &_ => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_detect_scanner_from_name() {
+        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
+
+        assert_eq!(
+            detect_scanner_from_name(&ptr).unwrap(),
+            Some(Scanners::Shadowserver)
+        );
+    }
+
+    #[test]
+    fn test_detect_scanner() {
+        let cname_ptr = Name::from_str("111.0-24.197.62.64.in-addr.arpa.").unwrap();
+        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
+
+        assert_eq!(
+            detect_scanner(&ResolvedResult {
+                query: cname_ptr,
+                result: Some(ptr),
+                error: None
+            })
+            .unwrap(),
+            Some(Scanners::Shadowserver)
+        );
     }
 }
