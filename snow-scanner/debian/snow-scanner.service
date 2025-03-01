@@ -55,6 +55,9 @@ SystemCallArchitectures=native
 # Allow icmp
 #AmbientCapabilities=CAP_NET_RAW
 
+# Add this one for ports < 1024
+#AmbientCapabilities=CAP_NET_BIND_SERVICE
+
 # sets up a new /dev/ mount for the executed processes and only adds API pseudo devices such as /dev/null, /dev/zero or /dev/random to it,
 # but no physical devices such as /dev/sda, system memory /dev/mem, system ports /dev/port and others.
 # This is useful to turn off physical device access by the executed process
