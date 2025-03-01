@@ -1,6 +1,6 @@
 [package]
 name = "snow-scanner"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["William Desportes <williamdes@wdes.fr>"]
 edition = "2021"
 rust-version = "1.81.0"  # MSRV
