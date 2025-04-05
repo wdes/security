@@ -15,7 +15,7 @@
 - `https://security.wdes.eu/collections/wdes/bad-networks.txt` (List of some hand picked bad networks)
 - `https://security.wdes.eu/collections/wdes/bad-ips.txt` (List of some hand picked bad IPs that caused harm/attacks/scans to mail servers)
 
-- `https://security.wdes.eu/collections/microsoft/email-servers.txt` (List of the Microsoft IPs for it's mail servers)
+- `https://security.wdes.eu/collections/microsoft/email-servers.txt` (List of the [Microsoft IPs for it's mail servers](https://learn.microsoft.com/en-us/microsoft-365/enterprise/urls-and-ip-address-ranges?view=o365-worldwide#exchange-online))
 - `https://security.wdes.eu/collections/amazon/cloudfront-ips.txt` (List of AWS CloudFront IPs)
 
 ## Other similar projects
