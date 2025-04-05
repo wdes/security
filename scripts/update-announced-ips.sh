@@ -11,7 +11,12 @@ UA="$1"
 
 set -x
 
-cd ./data/
+PROJECT_ROOT="$(realpath $(dirname $0)/../)"
+
+# Last checked: 05/04/2025
+echo "Running in: $PROJECT_ROOT"
+
+cd "$PROJECT_ROOT/data/scanners/"
 
 # Fetch digitalocean declared IPs
 curl https://digitalocean.com/geo/google.csv -s -L -# -o - | cut -d ',' -f 1 | sort | uniq > digitalocean_ips.txt
