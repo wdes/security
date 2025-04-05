@@ -9,6 +9,7 @@
 - `https://security.wdes.eu/scanners/shadowserver.txt` (List of all known shadowserver IPs)
 - `https://security.wdes.eu/scanners/censys.txt` (List of all IPs declared by censys scanner on their [FAQ](https://docs.censys.com/docs/opt-out-of-data-collection)
 - `https://security.wdes.eu/scanners/internet-measurement.com.txt` (List of all IPs declared by internet-measurement.com on [their website](https://internet-measurement.com/#ips))
+- `https://security.wdes.eu/scanners/anssi.txt` (List of all IPs declared by CERT-FR/ANSSI on [their website](https://www.cert.ssi.gouv.fr/scans/))
 
 ### Collections (by vendor)
 
