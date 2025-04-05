@@ -28,7 +28,7 @@ curl https://bgp.tools/table.txt -A "$UA" -s | grep -e ' 14061$' | wc -l
 curl https://bgp.tools/table.txt -A "$UA" -s | grep -e ' 14061$' | cut -d ' ' -f 1 | sort | uniq > digitalocean_announced_ips.txt
 
 # Compare the declared IPs and announced IPs
-diff -u digitalocean_ips.txt digitalocean_announced_ips.txt > digitalocean_ips_vs_announced_ips.diff
+diff -u digitalocean_ips.txt digitalocean_announced_ips.txt > digitalocean_ips_vs_announced_ips.diff | true
 
 # Generate the full IP list to check PTRs
 grep -v -F ":" digitalocean_announced_ips.txt | xargs -n1 prips > digitalocean_announced_ips_full.txt
