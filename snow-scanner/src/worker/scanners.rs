@@ -49,7 +49,7 @@ impl ScannerMethods for Scanners {
             Self::Censys => "Censys node",
             Self::InternetMeasurement => "internet measurement probe",
             Self::Shadowserver => "cloudy shadowserver",
-            Self::Anssi => "French ANSSI scanner",
+            _ => (*self).into(),
         }
     }
 }
@@ -78,6 +78,13 @@ impl<'de> Deserialize<'de> for Scanners {
 
 impl ToString for Scanners {
     fn to_string(&self) -> String {
+        let res: &str = (*self).into();
+        res.to_string()
+    }
+}
+
+impl Into<&str> for Scanners {
+    fn into(self) -> &'static str {
         match self {
             Self::Stretchoid => "stretchoid",
             Self::Binaryedge => "binaryedge",
@@ -86,13 +93,13 @@ impl ToString for Scanners {
             Self::Shadowserver => "shadowserver",
             Self::Anssi => "anssi",
         }
-        .to_string()
     }
 }
 
 impl serialize::ToSql<Text, Mysql> for Scanners {
     fn to_sql(&self, out: &mut serialize::Output<Mysql>) -> serialize::Result {
-        out.write_all(self.to_string().as_bytes())?;
+        let res: &str = (*self).into();
+        out.write_all(res.as_bytes())?;
 
         Ok(IsNull::No)
     }
