@@ -19,6 +19,7 @@ pub enum Scanners {
     Shadowserver,
     Censys,
     InternetMeasurement,
+    Anssi,
 }
 
 pub trait ScannerMethods {
@@ -29,17 +30,14 @@ pub trait ScannerMethods {
 
 impl ScannerMethods for Scanners {
     fn is_static(self: &Self) -> bool {
-        match self {
-            Self::Censys => true,
-            Self::InternetMeasurement => true,
-            _ => false,
-        }
+        self.static_file_name().is_some()
     }
 
     fn static_file_name(self: &Self) -> Option<&str> {
         match self {
             Self::Censys => Some("censys.txt"),
             Self::InternetMeasurement => Some("internet-measurement.com.txt"),
+            Self::Anssi => Some("anssi.txt"),
             _ => None,
         }
     }
@@ -51,6 +49,7 @@ impl ScannerMethods for Scanners {
             Self::Censys => "Censys node",
             Self::InternetMeasurement => "internet measurement probe",
             Self::Shadowserver => "cloudy shadowserver",
+            Self::Anssi => "French ANSSI scanner",
         }
     }
 }
@@ -85,6 +84,7 @@ impl ToString for Scanners {
             Self::Censys => "censys",
             Self::InternetMeasurement => "internet-measurement.com",
             Self::Shadowserver => "shadowserver",
+            Self::Anssi => "anssi",
         }
         .to_string()
     }
@@ -121,6 +121,7 @@ impl TryInto<Scanners> for &str {
             "internet-measurement.com" => Ok(Scanners::InternetMeasurement),
             "shadowserver" => Ok(Scanners::Shadowserver),
             "censys" => Ok(Scanners::Censys),
+            "anssi" => Ok(Scanners::Anssi),
             value => Err(format!("Invalid value: {value}")),
         }
     }
