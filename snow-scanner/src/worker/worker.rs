@@ -2,7 +2,6 @@ use std::{env, net::IpAddr};
 
 use chrono::{Duration, NaiveDateTime, Utc};
 use cidr::IpCidr;
-use detection::detect_scanner;
 use dns_ptr_resolver::{get_ptr, ResolvedResult};
 use log2::*;
 use scanners::Scanners;
@@ -160,14 +159,16 @@ impl Worker {
         for addr in addresses {
             let client = get_dns_client(&get_dns_server_config(&rr_dns_servers.next().unwrap()));
             match get_ptr(addr, client) {
-                Ok(result) => match detect_scanner(&result) {
-                    Ok(Some(scanner_name)) => {
-                        self.report_detection(scanner_name, addr, result);
-                    }
-                    Ok(None) => {}
+                Ok(result) => {
+                    let scanner: Result<Scanners, String> = result.query.clone().try_into();
 
-                    Err(err) => error!("Error detecting for {addr}: {:?}", err),
-                },
+                    match scanner {
+                        Ok(scanner_name) => {
+                            self.report_detection(scanner_name, addr, result);
+                        }
+                        Err(err) => error!("Error detecting for {addr}: {:?}", err),
+                    }
+                }
                 Err(_) => {
                     //debug!("Error processing {addr}: {err}")
                 }
