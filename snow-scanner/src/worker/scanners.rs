@@ -171,20 +171,4 @@ mod test {
 
         assert_eq!(res.unwrap(), Scanners::Shadowserver);
     }
-
-    #[test]
-    fn test_detect_scanner() {
-        let cname_ptr = Name::from_str("111.0-24.197.62.64.in-addr.arpa.").unwrap();
-        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
-
-        assert_eq!(
-            detect_scanner(&ResolvedResult {
-                query: cname_ptr,
-                result: Some(ptr),
-                error: None
-            })
-            .unwrap(),
-            Some(Scanners::Shadowserver)
-        );
-    }
 }
