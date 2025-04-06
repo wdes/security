@@ -1,6 +1,8 @@
 [Unit]
 Description=Snow scanner worker
 After=network.target
+After=snow-scanner.service
+Requires=snow-scanner.service
 
 [Service]
 Type=simple
