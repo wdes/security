@@ -195,9 +195,9 @@ impl Worker {
 
     pub fn receive_request(&mut self, server_request: WorkerMessages) -> &Worker {
         match server_request {
-            WorkerMessages::DoWorkRequest { neworks } => {
-                info!("Work request received for neworks: {:?}", neworks);
-                for cidr in neworks {
+            WorkerMessages::DoWorkRequest { networks } => {
+                info!("Work request received for networks: {:?}", networks);
+                for cidr in networks {
                     let cidr = cidr.0;
                     self.work_on_cidr(cidr);
                 }

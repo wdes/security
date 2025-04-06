@@ -15,7 +15,7 @@ pub enum WorkerMessages {
     #[serde(rename = "get_work")]
     GetWorkRequest {},
     #[serde(rename = "do_work")]
-    DoWorkRequest { neworks: Vec<Network> },
+    DoWorkRequest { networks: Vec<Network> },
     #[serde(rename = "scanner_found")]
     ScannerFoundResponse { name: String, address: IpAddr },
     #[serde(rename = "")]
@@ -95,25 +95,25 @@ mod tests {
 
     #[test]
     fn deserialize_do_work_empty() {
-        let data = "{\"type\":\"do_work\",\"request\":{\"neworks\":[]}}";
+        let data = "{\"type\":\"do_work\",\"request\":{\"networks\":[]}}";
         let result: WorkerMessages = data.to_string().into();
         assert_eq!(
             result,
             WorkerMessages::DoWorkRequest {
-                neworks: [].to_vec()
+                networks: [].to_vec()
             }
         );
     }
 
     #[test]
     fn deserialize_do_work() {
-        let data = "{\"type\":\"do_work\",\"request\":{\"neworks\":[\"127.0.0.0/31\"]}}";
+        let data = "{\"type\":\"do_work\",\"request\":{\"networks\":[\"127.0.0.0/31\"]}}";
         let result: WorkerMessages = data.to_string().into();
         let cidr: IpCidr = IpCidr::from_str("127.0.0.0/31").unwrap();
         assert_eq!(
             result,
             WorkerMessages::DoWorkRequest {
-                neworks: [Network(cidr)].to_vec()
+                networks: [Network(cidr)].to_vec()
             }
         );
     }

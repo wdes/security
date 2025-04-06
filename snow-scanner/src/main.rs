@@ -244,7 +244,7 @@ async fn handle_scan(
 
                 let msg = EventBusWriterEvent::BroadcastMessage(
                     WorkerMessages::DoWorkRequest {
-                        neworks: vec![Network(cidr)],
+                        networks: vec![Network(cidr)],
                     }
                     .into(),
                 );

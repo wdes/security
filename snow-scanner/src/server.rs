@@ -271,7 +271,7 @@ impl<'a> Worker<'a> {
                 Ok(())
             }
             WorkerMessages::GetWorkRequest {} => {
-                worker_reply = Some(WorkerMessages::DoWorkRequest { neworks: vec![] });
+                worker_reply = Some(WorkerMessages::DoWorkRequest { networks: vec![] });
                 Ok(())
             }
             WorkerMessages::DoWorkRequest { .. } | WorkerMessages::Invalid { .. } => {
