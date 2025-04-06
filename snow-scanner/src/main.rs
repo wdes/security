@@ -33,11 +33,9 @@ use rocket_ws::WebSocket;
 use server::Server;
 use weighted_rs::Weight;
 
-use snow_scanner_worker::detection::{
-    detect_scanner, get_dns_client, get_dns_server_config, validate_ip,
-};
+use snow_scanner_worker::detection::{get_dns_client, get_dns_server_config, validate_ip};
 use snow_scanner_worker::modules::{Network, WorkerMessages};
-use snow_scanner_worker::scanners::IsStatic;
+use snow_scanner_worker::scanners::ScannerMethods;
 use snow_scanner_worker::scanners::Scanners;
 use snow_scanner_worker::utils::get_dns_rr;
 
@@ -125,14 +123,14 @@ impl FromFormField<'_> for SafeIpAddr {
 
 async fn handle_ip(
     query_address: IpAddr,
-) -> Result<(IpAddr, Option<Scanners>, ResolvedResult), ()> {
-    let ptr_result: Result<ResolvedResult, ()> = std::thread::spawn(move || {
+) -> Result<(IpAddr, Option<Scanners>, ResolvedResult), String> {
+    let ptr_result: Result<ResolvedResult, String> = std::thread::spawn(move || {
         let mut rr_dns_servers = get_dns_rr();
         let client = get_dns_client(&get_dns_server_config(&rr_dns_servers.next().unwrap()));
         let ptr_result: ResolvedResult = if let Ok(res) = get_ptr(query_address, client) {
             res
         } else {
-            return Err(());
+            return Err("Resolving error".to_string());
         };
         Ok(ptr_result)
     })
@@ -140,17 +138,20 @@ async fn handle_ip(
     .unwrap();
 
     match ptr_result {
-        Ok(result) => match detect_scanner(&result) {
-            Ok(Some(scanner_type)) => {
-                if !validate_ip(query_address) {
-                    error!("Invalid IP address: {query_address}");
-                    return Err(());
+        Ok(result) => {
+            let scanner: Result<Scanners, String> = result.query.clone().try_into();
+
+            match scanner {
+                Ok(scanner_type) => {
+                    if !validate_ip(query_address) {
+                        error!("Invalid IP address: {query_address}");
+                        return Err("".to_string());
+                    }
+                    Ok((query_address, Some(scanner_type), result))
                 }
-                Ok((query_address, Some(scanner_type), result))
+                Err(err) => Err(err),
             }
-            Ok(None) => Ok((query_address, None, result)),
-            Err(err) => Err(err),
-        },
+        }
         Err(err) => Err(err),
     }
 }
@@ -263,44 +264,19 @@ pub struct ReportParams {
 }
 
 fn reply_contents_for_scanner_found(scanner: Scanner) -> HtmlContents {
-    HtmlContents(match scanner.scanner_name {
-        Scanners::Binaryedge => match scanner.last_checked_at {
-            Some(date) => format!(
-                "Reported a binaryedge ninja! <b>{}</b> known as {} since {date}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-            None => format!(
-                "Reported a binaryedge ninja! <b>{}</b> known as {}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-        },
-        Scanners::Stretchoid => match scanner.last_checked_at {
-            Some(date) => format!(
-                "Reported a stretchoid agent! <b>{}</b> known as {} since {date}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-            None => format!(
-                "Reported a stretchoid agent! <b>{}</b> known as {}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-        },
-        Scanners::Shadowserver => match scanner.last_checked_at {
-            Some(date) => format!(
-                "Reported a cloudy shadowserver ! <b>{}</b> known as {} since {date}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-            None => format!(
-                "Reported a cloudy shadowserver ! <b>{}</b> known as {}.",
-                scanner.ip,
-                scanner.ip_ptr.unwrap_or("".to_string())
-            ),
-        },
-        _ => format!("Not supported"),
+    HtmlContents(match scanner.last_checked_at {
+        Some(date) => format!(
+            "Reported a {}! <b>{}</b> known as {} since {date}.",
+            scanner.scanner_name.funny_name(),
+            scanner.ip,
+            scanner.ip_ptr.unwrap_or("".to_string())
+        ),
+        None => format!(
+            "Reported a {}! <b>{}</b> known as {}.",
+            scanner.scanner_name.funny_name(),
+            scanner.ip,
+            scanner.ip_ptr.unwrap_or("".to_string())
+        ),
     })
 }
 
@@ -397,13 +373,11 @@ async fn handle_list_scanners(
         let mut path: PathBuf = PathBuf::new();
         path.push(static_data_dir);
         path.push("scanners");
-        path.push(match scanner_name {
-            Scanners::Stretchoid | Scanners::Binaryedge | Scanners::Shadowserver => {
-                panic!("This should not happen")
-            }
-            Scanners::Censys => "censys.txt".to_string(),
-            Scanners::InternetMeasurement => "internet-measurement.com.txt".to_string(),
-        });
+        path.push(
+            scanner_name
+                .static_file_name()
+                .expect("Static files should have a static file name"),
+        );
 
         return match NamedFile::open(path).await {
             Ok(file) => MultiReply::FileContents(file),

@@ -5,10 +5,11 @@ use diesel::mysql::MysqlValue;
 use diesel::serialize;
 use diesel::serialize::IsNull;
 use diesel::sql_types::Text;
+use hickory_resolver::Name;
 use rocket::request::FromParam;
+use std::str::FromStr;
 
 use serde::{Deserialize, Deserializer};
-use std::fmt;
 use std::io::Write;
 
 #[derive(Debug, Clone, Copy, FromSqlRow, PartialEq)]
@@ -20,16 +21,36 @@ pub enum Scanners {
     InternetMeasurement,
 }
 
-pub trait IsStatic {
+pub trait ScannerMethods {
     fn is_static(self: &Self) -> bool;
+    fn static_file_name(self: &Self) -> Option<&str>;
+    fn funny_name(self: &Self) -> &str;
 }
 
-impl IsStatic for Scanners {
+impl ScannerMethods for Scanners {
     fn is_static(self: &Self) -> bool {
         match self {
-            Scanners::Censys => true,
-            Scanners::InternetMeasurement => true,
+            Self::Censys => true,
+            Self::InternetMeasurement => true,
             _ => false,
+        }
+    }
+
+    fn static_file_name(self: &Self) -> Option<&str> {
+        match self {
+            Self::Censys => Some("censys.txt"),
+            Self::InternetMeasurement => Some("internet-measurement.com.txt"),
+            _ => None,
+        }
+    }
+
+    fn funny_name(self: &Self) -> &str {
+        match self {
+            Self::Stretchoid => "stretchoid agent",
+            Self::Binaryedge => "binaryedge ninja",
+            Self::Censys => "Censys node",
+            Self::InternetMeasurement => "internet measurement probe",
+            Self::Shadowserver => "cloudy shadowserver",
         }
     }
 }
@@ -38,17 +59,7 @@ impl FromParam<'_> for Scanners {
     type Error = String;
 
     fn from_param(param: &'_ str) -> Result<Self, Self::Error> {
-        match param {
-            "stretchoid" => Ok(Scanners::Stretchoid),
-            "binaryedge" => Ok(Scanners::Binaryedge),
-            "shadowserver" => Ok(Scanners::Shadowserver),
-            "stretchoid.txt" => Ok(Scanners::Stretchoid),
-            "binaryedge.txt" => Ok(Scanners::Binaryedge),
-            "shadowserver.txt" => Ok(Scanners::Shadowserver),
-            "censys.txt" => Ok(Scanners::Censys),
-            "internet-measurement.com.txt" => Ok(Scanners::InternetMeasurement),
-            v => Err(format!("Unknown value: {v}")),
-        }
+        param.try_into()
     }
 }
 
@@ -59,48 +70,29 @@ impl<'de> Deserialize<'de> for Scanners {
     {
         let s = <Vec<String>>::deserialize(deserializer)?;
         let k: &str = s[0].as_str();
-        match k {
-            "stretchoid" => Ok(Scanners::Stretchoid),
-            "binaryedge" => Ok(Scanners::Binaryedge),
-            "shadowserver" => Ok(Scanners::Shadowserver),
-            "stretchoid.txt" => Ok(Scanners::Stretchoid),
-            "binaryedge.txt" => Ok(Scanners::Binaryedge),
-            "shadowserver.txt" => Ok(Scanners::Shadowserver),
-            "censys.txt" => Ok(Scanners::Censys),
-            "internet-measurement.com.txt" => Ok(Scanners::InternetMeasurement),
-            v => Err(serde::de::Error::custom(format!(
-                "Unknown value: {}",
-                v.to_string()
-            ))),
+        match k.try_into() {
+            Ok(scanners) => Ok(scanners),
+            Err(v) => Err(serde::de::Error::custom(format!("Unknown value: {}", v))),
         }
     }
 }
 
-impl fmt::Display for Scanners {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Stretchoid => "stretchoid",
-                Self::Binaryedge => "binaryedge",
-                Self::Censys => "censys",
-                Self::InternetMeasurement => "internet-measurement.com",
-                Self::Shadowserver => "shadowserver",
-            }
-        )
+impl ToString for Scanners {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Stretchoid => "stretchoid",
+            Self::Binaryedge => "binaryedge",
+            Self::Censys => "censys",
+            Self::InternetMeasurement => "internet-measurement.com",
+            Self::Shadowserver => "shadowserver",
+        }
+        .to_string()
     }
 }
 
 impl serialize::ToSql<Text, Mysql> for Scanners {
     fn to_sql(&self, out: &mut serialize::Output<Mysql>) -> serialize::Result {
-        match *self {
-            Self::Stretchoid => out.write_all(b"stretchoid")?,
-            Self::Binaryedge => out.write_all(b"binaryedge")?,
-            Self::Censys => out.write_all(b"censys")?,
-            Self::InternetMeasurement => out.write_all(b"internet-measurement.com")?,
-            Self::Shadowserver => out.write_all(b"shadowserver")?,
-        };
+        out.write_all(self.to_string().as_bytes())?;
 
         Ok(IsNull::No)
     }
@@ -118,16 +110,81 @@ impl deserialize::FromSql<Text, Mysql> for Scanners {
     }
 }
 
+// Used for FromSql & FromParam & Deserialize
 impl TryInto<Scanners> for &str {
     type Error = String;
 
     fn try_into(self) -> Result<Scanners, Self::Error> {
-        match self {
+        match self.replace(".txt", "").as_str() {
             "stretchoid" => Ok(Scanners::Stretchoid),
             "binaryedge" => Ok(Scanners::Binaryedge),
             "internet-measurement.com" => Ok(Scanners::InternetMeasurement),
             "shadowserver" => Ok(Scanners::Shadowserver),
+            "censys" => Ok(Scanners::Censys),
             value => Err(format!("Invalid value: {value}")),
         }
+    }
+}
+
+// Used by the DNS logic
+impl TryInto<Scanners> for Name {
+    type Error = String;
+
+    fn try_into(self) -> Result<Scanners, Self::Error> {
+        match self {
+            ref name
+                if name
+                    .trim_to(2)
+                    .eq_case(&Name::from_str("binaryedge.ninja.").expect("Should parse")) =>
+            {
+                Ok(Scanners::Binaryedge)
+            }
+            ref name
+                if name
+                    .trim_to(2)
+                    .eq_case(&Name::from_str("stretchoid.com.").expect("Should parse")) =>
+            {
+                Ok(Scanners::Stretchoid)
+            }
+            ref name
+                if name
+                    .trim_to(2)
+                    .eq_case(&Name::from_str("shadowserver.org.").expect("Should parse")) =>
+            {
+                Ok(Scanners::Shadowserver)
+            }
+            ref name => Err(format!("Invalid hostname: {name}")),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_detect_scanner_from_name() {
+        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
+
+        let res: Result<Scanners, String> = ptr.try_into();
+
+        assert_eq!(res.unwrap(), Scanners::Shadowserver);
+    }
+
+    #[test]
+    fn test_detect_scanner() {
+        let cname_ptr = Name::from_str("111.0-24.197.62.64.in-addr.arpa.").unwrap();
+        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
+
+        assert_eq!(
+            detect_scanner(&ResolvedResult {
+                query: cname_ptr,
+                result: Some(ptr),
+                error: None
+            })
+            .unwrap(),
+            Some(Scanners::Shadowserver)
+        );
     }
 }

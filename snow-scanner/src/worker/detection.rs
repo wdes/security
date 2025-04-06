@@ -1,12 +1,8 @@
 use std::net::IpAddr;
-use std::str::FromStr;
 use std::time::Duration;
 
-use crate::scanners::Scanners;
-use dns_ptr_resolver::ResolvedResult;
-
 use hickory_resolver::config::{NameServerConfigGroup, ResolverConfig, ResolverOpts};
-use hickory_resolver::{Name, Resolver};
+use hickory_resolver::Resolver;
 
 use crate::ip_addr::is_global_hardcoded;
 
@@ -32,69 +28,4 @@ pub fn validate_ip(ip: IpAddr) -> bool {
         return false;
     }
     return is_global_hardcoded(ip);
-}
-
-pub fn detect_scanner(ptr_result: &ResolvedResult) -> Result<Option<Scanners>, ()> {
-    match &ptr_result.result {
-        Some(name) => detect_scanner_from_name(&name),
-        None => Ok(None),
-    }
-}
-
-pub fn detect_scanner_from_name(name: &Name) -> Result<Option<Scanners>, ()> {
-    match name {
-        ref name
-            if name
-                .trim_to(2)
-                .eq_case(&Name::from_str("binaryedge.ninja.").expect("Should parse")) =>
-        {
-            Ok(Some(Scanners::Binaryedge))
-        }
-        ref name
-            if name
-                .trim_to(2)
-                .eq_case(&Name::from_str("stretchoid.com.").expect("Should parse")) =>
-        {
-            Ok(Some(Scanners::Stretchoid))
-        }
-        ref name
-            if name
-                .trim_to(2)
-                .eq_case(&Name::from_str("shadowserver.org.").expect("Should parse")) =>
-        {
-            Ok(Some(Scanners::Shadowserver))
-        }
-        &_ => Ok(None),
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_detect_scanner_from_name() {
-        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
-
-        assert_eq!(
-            detect_scanner_from_name(&ptr).unwrap(),
-            Some(Scanners::Shadowserver)
-        );
-    }
-
-    #[test]
-    fn test_detect_scanner() {
-        let cname_ptr = Name::from_str("111.0-24.197.62.64.in-addr.arpa.").unwrap();
-        let ptr = Name::from_str("scan-47e.shadowserver.org.").unwrap();
-
-        assert_eq!(
-            detect_scanner(&ResolvedResult {
-                query: cname_ptr,
-                result: Some(ptr),
-                error: None
-            })
-            .unwrap(),
-            Some(Scanners::Shadowserver)
-        );
-    }
 }
