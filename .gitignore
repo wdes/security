@@ -1,1 +1,7 @@
 /target
+
+# A 44 MB expansion of digitalocean_announced_ips.txt, produced by `prips` in
+# scripts/update-announced-ips.sh. It is a build artifact: regenerable from the file beside it, read
+# by nothing in this repo, and committed only because the workflow does `git add -A`. Nothing in the
+# site references it.
+data/scanners/digitalocean_announced_ips_full.txt

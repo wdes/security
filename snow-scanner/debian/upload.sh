@@ -19,7 +19,7 @@ if [ -z "$1" ]; then
     exit 1;
 fi
 
-curl --user $user:$token \
+curl --user "$user":"$token" \
      --upload-file "$1" \
      -v \
      -# \

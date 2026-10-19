@@ -17,7 +17,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
             - name: Build the AWS CloudFront list
-              run: ./make-aws-cloudfront-range.sh
+              run: ./scripts/make-aws-cloudfront-range.sh
             - name: Post the summary
               run: |
                 git add -A
